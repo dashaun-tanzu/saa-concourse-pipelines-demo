@@ -47,6 +47,10 @@ install_fly() {
     chmod +x ./fly
     ./fly -t advisor-demo login -c http://localhost:8080 -u test -p test -n main
     ./fly -t advisor-demo set-pipeline \
+            -p advisor-image \
+            -c ../pipelines/advisor-image.yml \
+            -v
+    ./fly -t advisor-demo set-pipeline \
             -p rewrite-spawner \
             -c ../pipelines/spawner-pipeline.yml \
             -v github_token="$GIT_TOKEN_FOR_PRS" \
