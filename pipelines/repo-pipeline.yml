@@ -1,0 +1,56 @@
+# repo-pipeline.yml
+# Instance vars expected:
+#   repo_full_name  (e.g., acme-inc/service-a)
+#   repo_clone_url  (e.g., https://github.com/acme-inc/service-a.git)
+# Vars expected:
+#   github_token
+#   docker_image_recipe_runner
+
+resource_types:
+  - name: time
+    type: registry-image
+    source: { repository: concourse/time-resource }
+
+resources:
+  - name: every-3h
+    type: time
+    source:
+      interval: 3h
+
+  - name: repo
+    type: git
+    source:
+      uri: ((repo_clone_url))
+      branch: main
+      username: x-access-token
+      password: ((github_token))
+
+jobs:
+  - name: run-rewrite
+    serial: true
+    plan:
+      - get: every-3h
+        trigger: true
+      - get: repo
+        trigger: false
+      - task: recipe-runner
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: ubuntu
+          inputs:
+            - name: repo
+          params:
+            GITHUB_TOKEN: ((github_token))
+            REPO_FULL_NAME: ((repo_full_name))
+          run:
+            path: sh
+            args:
+              - -exc
+              - |
+                echo "Running recipe-runner against ((repo_full_name))"
+                # If recipe-runner is in the image's PATH:
+                recipe-runner --repo ./repo --github-token "${GITHUB_TOKEN}"
+                echo "Done."
