@@ -10,8 +10,7 @@ jobs:
           image_resource:
             type: registry-image
             source:
-              repository: maven
-              tag: "3.8-openjdk-11"
+              repository: alpine
           params:
             ARTIFACTORY_TOKEN: ((maven.password))
           run:
@@ -20,10 +19,11 @@ jobs:
               - -c
               - |
                 set -e
+                apk add --no-cache curl tar
                 until curl -L -H "Authorization: Bearer $ARTIFACTORY_TOKEN" -o advisor-cli.tar -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
                   echo "Retrying..."
                   sleep 1
                 done
                 tar -xf advisor-cli.tar
-                ls -latr ./cli-binary/
-                mv ./cli-binary/* /tmp/shared-binaries/
+                ls -latr
+                mv cli-binary/advisor /tmp/shared-binaries/
