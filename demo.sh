@@ -28,6 +28,8 @@ init() {
 install_concourse() {
     curl -O https://concourse-ci.org/docker-compose.yml
     sed -i '/CONCOURSE_WORKER_RUNTIME: "containerd"/a\      CONCOURSE_ENABLE_ACROSS_STEP: "true"' docker-compose.yml
+    sed -i "s|CONCOURSE_EXTERNAL_URL: http://localhost:8080|CONCOURSE_EXTERNAL_URL: $CONCOURSE_EXTERNAL_URL|g" docker-compose.yml
+
     docker compose down
     docker compose up -d
 }
