@@ -55,21 +55,14 @@ install_fly() {
     chmod +x ./fly
     ./fly -t advisor-demo login -c http://localhost:8080 -u test -p test -n main
     ./fly -t advisor-demo set-pipeline -n \
-            -p advisor-image \
-            -c ../pipelines/advisor-image.yml \
-            -v maven.username="$MAVEN_USERNAME" \
-            -v maven.password="$MAVEN_PASSWORD" \
-            -v registry-ip="$REGISTRY_IP"
-    ./fly -t advisor-demo unpause-pipeline -p advisor-image
-    ./fly -t advisor-demo trigger-job -j advisor-image/cache-binary
-    ./fly -t advisor-demo set-pipeline -n \
             -p rewrite-spawner \
             -c ../pipelines/spawner-pipeline.yml \
             -v github_token="$GIT_TOKEN_FOR_PRS" \
             -v github_orgs='["dashaun-demo"]' \
-            -v api_base='https://api.github.com'
+            -v api_base='https://api.github.com' \
+            -v maven.password="$MAVEN_PASSWORD"
     ./fly -t advisor-demo unpause-pipeline -p rewrite-spawner
-
+    ./fly -t advisor-demo trigger-job -j rewrite-spawner/discover-and-spawn
 }
 
 rewrite_application() {

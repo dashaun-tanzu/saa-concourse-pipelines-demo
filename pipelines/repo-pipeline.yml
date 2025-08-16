@@ -18,6 +18,33 @@ resources:
       password: ((github_token))
 
 jobs:
+  - name: cache-binary
+    plan:
+      - task: download-maven-artifact
+        config:
+          caches:
+            - path: /tmp/shared-binaries
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: alpine
+          params:
+            ARTIFACTORY_TOKEN: ((maven.password))
+          run:
+            path: sh
+            args:
+              - -c
+              - |
+                set -e
+                apk add --no-cache curl tar
+                until curl -L -H "Authorization: Bearer $ARTIFACTORY_TOKEN" -o advisor-cli.tar -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
+                  echo "Retrying..."
+                  sleep 1
+                done
+                tar -xf advisor-cli.tar
+                ls -latr
+                mv cli-binary/advisor /tmp/shared-binaries/
   - name: run-rewrite
     serial: true
     plan:
@@ -32,7 +59,7 @@ jobs:
           image_resource:
             type: docker-image
             source:
-              repository: ubuntu
+              repository: alpine
           inputs:
             - name: repo
           params:
