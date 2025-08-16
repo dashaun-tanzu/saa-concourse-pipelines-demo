@@ -50,6 +50,7 @@ install_fly() {
             -v github_token="$GIT_TOKEN_FOR_PRS" \
             -v github_orgs='["dashaun-demo"]' \
             -v api_base='https://api.github.com'
+    ./fly -t advisor-demo unpause-pipeline -p rewrite-spawner
 
 }
 

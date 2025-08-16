@@ -41,7 +41,7 @@ jobs:
             source:
               repository: ubuntu
           inputs:
-            - name: repo
+            - name: [{ name: repo }]
           params:
             GITHUB_TOKEN: ((github_token))
             REPO_FULL_NAME: ((repo_full_name))

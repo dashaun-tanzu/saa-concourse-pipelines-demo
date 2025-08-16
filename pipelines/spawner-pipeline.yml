@@ -117,12 +117,11 @@ jobs:
           - var: repo
             values: ((.:repos))
         do:
-          - set_pipeline: rewrite-((repo.safe_name))
-            file: repo-pipeline.yml
-            instance_vars:
-              repo_full_name: ((repo.full_name))
-              repo_clone_url: ((repo.clone_url))
-            vars:
-              github_token: ((github_token))
-            # If your Concourse supports it, you can auto-unpause with:
-            # paused: false
+        - set_pipeline: rewrite-((.:repo.safe_name))
+          file: repo-pipeline.yml
+          vars:
+            # pass these into the child pipeline so it can use ((repo_full_name)) etc.
+            repo_full_name: ((.:repo.full_name))
+            repo_clone_url: ((.:repo.clone_url))
+            github_token: ((github_token))
+            paused: false  # enable if your Concourse supports it
