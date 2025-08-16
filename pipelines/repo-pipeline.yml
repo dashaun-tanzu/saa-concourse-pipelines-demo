@@ -26,6 +26,8 @@ jobs:
       - get: repo
       - task: recipe-runner
         config:
+          caches:
+          - path: /tmp/shared-binaries
           platform: linux
           image_resource:
             type: docker-image
@@ -42,3 +44,4 @@ jobs:
               - -exc
               - |
                 echo "Running recipe-"
+                ls -latr /tmp/shared-binaries

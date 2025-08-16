@@ -1,131 +1,29 @@
 ---
-resource_types:
-  - name: registry-image
-    type: registry-image
-    source:
-      repository: concourse/registry-image-resource
-
-resources:
-  # Concourse internal registry - no authentication needed
-  - name: app-image
-    type: registry-image
-    source:
-      repository: ((concourse.registry_host))/((pipeline_name))/app
-      tag: latest
-
 jobs:
-  - name: build-and-push-image
+  - name: cache-binary
     plan:
       - task: download-maven-artifact
         config:
+          caches:
+            - path: /tmp/shared-binaries
           platform: linux
           image_resource:
             type: registry-image
             source:
               repository: maven
               tag: "3.8-openjdk-11"
-          inputs:
-            - name: source-repo
-            - name: version
-          outputs:
-            - name: build-context
           params:
-            MAVEN_REPO_URL: https://packages.broadcom.com/artifactory/spring-enterprise/
-            MAVEN_USERNAME: ((maven.username))
-            MAVEN_PASSWORD: ((maven.password))
-            MAVEN_GROUP_ID: com.vmware.tanzu.spring
-            MAVEN_ARTIFACT_ID: application-advisor-cli-linux
-            MAVEN_VERSION: 1.4.0
-            MAVEN_PACKAGING: tar
+            ARTIFACTORY_TOKEN: ((maven.password))
           run:
             path: sh
             args:
               - -c
               - |
                 set -e
-
-                echo "Downloading Maven artifact..."
-                echo "Repository: $MAVEN_REPO_URL"
-                echo "Group ID: $MAVEN_GROUP_ID"
-                echo "Artifact ID: $MAVEN_ARTIFACT_ID"
-                echo "Version: $MAVEN_VERSION"
-
-                # Create Maven settings.xml with authentication
-                mkdir -p ~/.m2
-                cat > ~/.m2/settings.xml <<EOF
-                <?xml version="1.0" encoding="UTF-8"?>
-                <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-                          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
-                          http://maven.apache.org/xsd/settings-1.0.0.xsd">
-                  <servers>
-                    <server>
-                      <id>private-repo</id>
-                      <username>$MAVEN_USERNAME</username>
-                      <password>$MAVEN_PASSWORD</password>
-                    </server>
-                  </servers>
-                </settings>
-                EOF
-
-                # Create a temporary pom.xml for dependency download
-                cat > pom.xml <<EOF
-                <?xml version="1.0" encoding="UTF-8"?>
-                <project xmlns="http://maven.apache.org/POM/4.0.0"
-                         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-                         http://maven.apache.org/xsd/maven-4.0.0.xsd">
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>temp</groupId>
-                  <artifactId>temp</artifactId>
-                  <version>1.0.0</version>
-
-                  <repositories>
-                    <repository>
-                      <id>private-repo</id>
-                      <url>$MAVEN_REPO_URL</url>
-                    </repository>
-                  </repositories>
-
-                  <dependencies>
-                    <dependency>
-                      <groupId>$MAVEN_GROUP_ID</groupId>
-                      <artifactId>$MAVEN_ARTIFACT_ID</artifactId>
-                      <version>$MAVEN_VERSION</version>
-                      <type>$MAVEN_PACKAGING</type>
-                    </dependency>
-                  </dependencies>
-                </project>
-                EOF
-
-                # Download the artifact
-                mvn dependency:copy-dependencies -DoutputDirectory=./artifacts -DincludeArtifactIds=$MAVEN_ARTIFACT_ID
-
-                echo "Downloaded artifacts:"
-                ls -la build-context/artifacts/
-
-      - task: build-docker-image
-        privileged: true
-        config:
-          platform: linux
-          image_resource:
-            type: registry-image
-            source:
-              repository: concourse/oci-build-task
-          inputs:
-            - name: build-context
-          outputs:
-            - name: image
-          params:
-            CONTEXT: build-context
-            DOCKERFILE: build-context/Dockerfile
-          run:
-            path: build
-
-      - put: app-image
-        params:
-          image: image/image.tar
-          additional_tags: version/version
-
-      - put: version
-        params: { file: version/version }
+                until curl -L -H "Authorization: Bearer $ARTIFACTORY_TOKEN" -o advisor-cli.tar -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
+                  echo "Retrying..."
+                  sleep 1
+                done
+                tar -xf advisor-cli.tar
+                ls -latr ./cli-binary/
+                mv ./cli-binary/* /tmp/shared-binaries/
