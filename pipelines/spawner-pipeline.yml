@@ -1,13 +1,13 @@
-#resource_types:
-#  - name: time
-#    type: registry-image
-#    source: { repository: concourse/time-resource }
+resource_types:
+  - name: time
+    type: registry-image
+    source: { repository: concourse/time-resource }
 
 resources:
-#  - name: hourly
-#    type: time
-#    source:
-#      interval: 1h
+  - name: periodic
+    type: time
+    source:
+      interval: 15m
 
   - name: templates
     type: git
@@ -20,8 +20,8 @@ jobs:
     serial: true
     plan:
       - get: templates
-#      - get: hourly
-#        trigger: true
+      - get: periodic
+        trigger: true
 
       - task: crawl-github
         timeout: 15m
