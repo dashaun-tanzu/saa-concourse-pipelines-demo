@@ -2,13 +2,11 @@ resource_types:
   - name: time
     type: registry-image
     source: { repository: concourse/time-resource }
-
 resources:
   - name: every-3h
     type: time
     source:
       interval: 3h
-
   - name: repo
     type: git
     source:
@@ -16,7 +14,6 @@ resources:
       branch: main
       username: x-access-token
       password: ((github_token))
-
 jobs:
   - name: cache-binary
     plan:
@@ -50,11 +47,12 @@ jobs:
     plan:
       - get: every-3h
         trigger: true
+        passed: [cache-binary]
       - get: repo
       - task: recipe-runner
         config:
           caches:
-          - path: /tmp/shared-binaries
+            - path: /tmp/shared-binaries
           platform: linux
           image_resource:
             type: docker-image
