@@ -26,35 +26,23 @@ jobs:
       - get: periodic
         trigger: true
       - get: alpine
-      - task: crawl-github-and-generate-pipelines
+      - task: crawl-github
         image: alpine
         timeout: 15m
         config:
           platform: linux
-          inputs:
-            - name: templates
           outputs:
-            - name: pipeline-configs
+            - name: repos
           params:
             GITHUB_TOKEN: ((github_token))
             GITHUB_ORGS_JSON: ((github_orgs))
             API_BASE: ((api_base))
-            FLY_TARGET: advisor-demo
-            FLY_USERNAME: test
-            FLY_PASSWORD: test
-            CONCOURSE_URL: http://thunderwsl:8080
-            MAVEN_PASSWORD: ((maven.password))
           run:
             path: sh
             args:
               - -exc
               - |
                 apk add --no-cache curl jq yq
-
-                # Download fly CLI
-                curl -L "${CONCOURSE_URL}/api/v1/cli?arch=amd64&platform=linux" -o fly
-                chmod +x fly
-                mv fly /usr/local/bin/
 
                 API_BASE="${API_BASE:-https://api.github.com}"
 
@@ -74,9 +62,10 @@ jobs:
                   done
                 }
 
-                # Build repos list
+                # Build a YAML array of repos we want pipelines for
                 tmp_json="$(mktemp)"
                 : > "$tmp_json"
+
                 echo "$GITHUB_ORGS_JSON" | jq -r '.[]' | while read -r ORG; do
                   gh_list "${API_BASE}/orgs/${ORG}/repos" | while read -r row; do
                     archived=$(echo "$row" | jq -r '.archived')
@@ -94,7 +83,7 @@ jobs:
                   done
                 done
 
-                # Convert to JSON array
+                # Convert NDJSON to YAML list
                 if [ -s "$tmp_json" ]; then
                   echo "[" > /tmp/list.json
                   paste -sd, "$tmp_json" >> /tmp/list.json
@@ -103,41 +92,21 @@ jobs:
                   echo "[]" > /tmp/list.json
                 fi
 
-                # Login to fly
-                echo "$FLY_PASSWORD" | fly -t "$FLY_TARGET" login -c "$CONCOURSE_URL" -u "$FLY_USERNAME"
-
-                # Generate and set pipelines for each repo
-                cat /tmp/list.json | jq -r '.[] | @base64' | while read -r encoded_repo; do
-                  repo_data=$(echo "$encoded_repo" | base64 -d)
-                  repo_full_name=$(echo "$repo_data" | jq -r '.full_name')
-                  repo_clone_url=$(echo "$repo_data" | jq -r '.clone_url')
-                  repo_safe_name=$(echo "$repo_data" | jq -r '.safe_name')
-                  pipeline_name="rewrite-${repo_safe_name}"
-
-                  echo "Setting pipeline: $pipeline_name for repo: $repo_full_name"
-
-                  # Create pipeline config with variable substitution
-                  pipeline_config="pipeline-configs/${pipeline_name}.yml"
-                  cp templates/pipelines/repo-pipeline.yml "$pipeline_config"
-
-                  # Create vars file
-                  vars_file="pipeline-configs/${pipeline_name}-vars.yml"
-                  cat > "$vars_file" << EOF
-                repo_full_name: $repo_full_name
-                repo_clone_url: $repo_clone_url
-                github_token: $GITHUB_TOKEN
-                maven.password: $MAVEN_PASSWORD
-                EOF
-
-                  # Set the pipeline
-                  fly -t "$FLY_TARGET" set-pipeline \
-                    -p "$pipeline_name" \
-                    -c "$pipeline_config" \
-                    -l "$vars_file" \
-                    --non-interactive
-
-                  # Unpause the pipeline
-                  fly -t "$FLY_TARGET" unpause-pipeline -p "$pipeline_name"
-                done
-
-                echo "Pipeline generation completed"
+                # repos/repos.yml will be a YAML array of objects:
+                # - full_name: org/repo
+                #   clone_url: https://github.com/org/repo.git
+                #   safe_name: org-repo
+                yq -P '.' /tmp/list.json > repos/repos.yml
+                echo "Wrote $(wc -l < repos/repos.yml) lines to repos/repos.yml"
+      - load_var: repos
+        file: repos/repos.yml
+      - across:
+          - var: repo
+            values: ((.:repos))
+        do:
+        - set_pipeline: rewrite-((.:repo.safe_name))
+          file: templates/pipelines/repo-pipeline.yml
+          vars:
+            repo_full_name: ((.:repo.full_name))
+            repo_clone_url: ((.:repo.clone_url))
+            github_token: ((github_token))

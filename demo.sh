@@ -27,16 +27,13 @@ init() {
 
 install_concourse() {
     curl -O https://concourse-ci.org/docker-compose.yml
-    sed -i '/CONCOURSE_WORKER_RUNTIME: "containerd"/a\      CONCOURSE_ENABLE_ACROSS_STEP: "true"' docker-compose.yml
-    sed -i "s|CONCOURSE_EXTERNAL_URL: http://localhost:8080|CONCOURSE_EXTERNAL_URL: $CONCOURSE_EXTERNAL_URL|g" docker-compose.yml
-    sed -i 's/8\.8\.8\.8/1.1.1.1/g' docker-compose.yml
-    cat >> docker-compose.yml << 'EOF'
+    sed -i '' '/CONCOURSE_WORKER_RUNTIME: "containerd"/a\
+      CONCOURSE_ENABLE_ACROSS_STEP: "true"' docker-compose.yml
+    sed -i '' 's/image: concourse\/concourse$/image: concourse\/concourse:7.14.0/' docker-compose.yml
+    sed -i '' "s|CONCOURSE_EXTERNAL_URL: http://localhost:8080|CONCOURSE_EXTERNAL_URL: $CONCOURSE_EXTERNAL_URL|g" docker-compose.yml
+    sed -i '' 's/8\.8\.8\.8/1.1.1.1/g' docker-compose.yml
+    sed -i '' 's/tutorial/dashaun-tanzu/g' docker-compose.yml
 
-  registry:
-    image: registry:2
-    ports:
-      - "5000:5000"
-EOF
     docker compose down
     docker compose up -d
 }
@@ -47,7 +44,7 @@ shutdown_concourse() {
 
 install_fly() {
   echo "GitHub Token -> $GITHUB_TOKEN"
-    until curl 'http://localhost:8080/api/v1/cli?arch=amd64&platform=linux' -o fly; do
+    until curl 'http://localhost:8080/api/v1/cli?arch=arm64&platform=darwin' -o fly; do
         echo "Retrying..."
         sleep 1
     done
