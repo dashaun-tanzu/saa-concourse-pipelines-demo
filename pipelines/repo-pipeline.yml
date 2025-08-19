@@ -27,6 +27,7 @@ jobs:
       - get: periodic
         trigger: true
       - get: repo
+      - get: alpine
       - task: recipe-runner
         config:
           platform: linux
