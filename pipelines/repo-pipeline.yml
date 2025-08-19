@@ -17,6 +17,8 @@ resources:
 jobs:
   - name: cache-binary
     plan:
+      - get: every-3h
+        trigger: true
       - task: download-maven-artifact
         config:
           caches:
@@ -45,10 +47,8 @@ jobs:
   - name: run-rewrite
     serial: true
     plan:
-      - get: every-3h
-        trigger: true
-        passed: [cache-binary]
       - get: repo
+        passed: [cache-binary]
       - task: recipe-runner
         config:
           caches:

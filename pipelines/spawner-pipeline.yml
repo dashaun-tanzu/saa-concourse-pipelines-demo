@@ -112,7 +112,6 @@ jobs:
         - set_pipeline: rewrite-pipeline
           file: templates/pipelines/repo-pipeline.yml
           vars:
-            repo_safe_name: ((.:repo.safe_name))
             repo_full_name: ((.:repo.full_name))
             repo_clone_url: ((.:repo.clone_url))
             github_token: ((github_token))
