@@ -109,39 +109,6 @@ jobs:
                 echo "Wrote $(wc -l < repos/repos.yml) lines to repos/repos.yml"
       - load_var: repos
         file: repos/repos.yml
-      - task: extract-unique-orgs
-        image: alpine
-        config:
-          platform: linux
-          inputs:
-            - name: repos
-          outputs:
-            - name: orgs
-          run:
-            path: sh
-            args:
-              - -exc
-              - |
-                apk add --no-cache yq jq
-                
-                # Extract unique organization names from repos.yml
-                yq '.[] | .org_name' repos/repos.yml | sort | uniq > orgs/unique_orgs.txt
-                
-                # Convert to JSON array for load_var
-                jq -R -s 'split("\n") | map(select(length > 0))' orgs/unique_orgs.txt > orgs/orgs.json
-                
-                echo "Unique organizations found:"
-                cat orgs/unique_orgs.txt
-      - load_var: orgs
-        file: orgs/orgs.json
-      - across:
-          - var: org
-            values: ((.:orgs))
-        do:
-          - set_team: ((.:org))
-            config:
-              users: []
-              groups: []
       - across:
           - var: repo
             values: ((.:repos))

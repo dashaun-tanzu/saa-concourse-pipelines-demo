@@ -43,7 +43,6 @@ shutdown_concourse() {
 }
 
 install_fly() {
-  echo "GitHub Token -> $GITHUB_TOKEN"
     until curl 'http://localhost:8080/api/v1/cli?arch=arm64&platform=darwin' -o fly; do
         echo "Retrying..."
         sleep 1
@@ -52,11 +51,18 @@ install_fly() {
 #    echo $REGISTRY_IP
     chmod +x ./fly
     ./fly -t advisor-demo login -c http://localhost:8080 -u test -p test -n main
+
+    orgs=$(echo "$GITHUB_ORGS" | sed 's/\[//g' | sed 's/\]//g' | sed 's/"//g')
+    IFS=',' read -ra ORG_ARRAY <<< "$orgs"
+    for org in "${ORG_ARRAY[@]}"; do
+        ./fly -t advisor-demo set-team --team-name "$org" --local-user test --non-interactive
+    done
+
     ./fly -t advisor-demo set-pipeline -n \
             -p rewrite-spawner \
             -c ../pipelines/spawner-pipeline.yml \
             -v github_token="$GIT_TOKEN_FOR_PRS" \
-            -v github_orgs='["dashaun-demo"]' \
+            -v github_orgs="$GITHUB_ORGS" \
             -v api_base='https://api.github.com' \
             -v maven.password="$MAVEN_PASSWORD" \
             -v docker-hub-username="$DOCKER_USER" \
