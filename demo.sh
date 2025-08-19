@@ -58,7 +58,7 @@ install_fly() {
         ./fly -t advisor-demo set-team --team-name "$org" --local-user test --non-interactive
     done
 
-    ./fly -t advisor-demo set-pipeline -n \
+    ./fly -t advisor-demo set-pipeline --non-interactive \
             -p rewrite-spawner \
             -c ../pipelines/spawner-pipeline.yml \
             -v github_token="$GIT_TOKEN_FOR_PRS" \
@@ -66,7 +66,7 @@ install_fly() {
             -v api_base='https://api.github.com' \
             -v maven.password="$MAVEN_PASSWORD" \
             -v docker-hub-username="$DOCKER_USER" \
-            -v docker-hub-password="$DOCKER_PASS"
+            -v docker-hub-password="$DOCKER_PASS" > /dev/null
     ./fly -t advisor-demo unpause-pipeline -p rewrite-spawner
     ./fly -t advisor-demo trigger-job -j rewrite-spawner/discover-and-spawn
 }
