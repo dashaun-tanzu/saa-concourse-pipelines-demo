@@ -117,6 +117,8 @@ jobs:
             file: templates/pipelines/repo-pipeline.yml
             team: ((.:repo.org_name))
             vars:
+              docker-hub-password: ((docker-hub-password))
+              docker-hub-username: ((docker-hub-username))
               repo_full_name: ((.:repo.full_name))
               repo_clone_url: ((.:repo.clone_url))
               github_token: ((github_token))
