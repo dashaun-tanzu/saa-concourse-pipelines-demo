@@ -3,10 +3,16 @@ resource_types:
     type: registry-image
     source: { repository: concourse/time-resource }
 resources:
-  - name: every-3h
+  - name: alpine
+    type: registry-image
+    source:
+      repository: alpine
+      username: ((docker-hub-username))
+      password: ((docker-hub-password))
+  - name: periodic
     type: time
     source:
-      interval: 3h
+      interval: 12h
   - name: repo
     type: git
     source:
@@ -15,25 +21,26 @@ resources:
       username: x-access-token
       password: ((github_token))
 jobs:
-  - name: cache-binary
+  - name: detect-drift
+    serial: true
     plan:
-      - get: every-3h
+      - get: periodic
         trigger: true
-      - task: download-maven-artifact
+      - get: repo
+      - task: recipe-runner
         config:
-          caches:
-            - path: /tmp/shared-binaries
           platform: linux
-          image_resource:
-            type: registry-image
-            source:
-              repository: alpine
+          image: alpine
+          inputs:
+            - name: repo
           params:
+            GITHUB_TOKEN: ((github_token))
+            REPO_FULL_NAME: ((repo_full_name))
             ARTIFACTORY_TOKEN: ((maven_password))
           run:
             path: sh
             args:
-              - -c
+              - -exc
               - |
                 set -e
                 apk add --no-cache curl tar
@@ -42,33 +49,7 @@ jobs:
                   sleep 1
                 done
                 tar -xf advisor-cli.tar
-                ls -latr
-                mv cli-binary/advisor /tmp/shared-binaries/
-  - name: run-rewrite
-    serial: true
-    plan:
-      - get: every-3h
-        trigger: true
-        passed: [cache-binary]
-      - get: repo
-      - task: recipe-runner
-        config:
-          caches:
-            - path: /tmp/shared-binaries
-          platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: alpine
-          inputs:
-            - name: repo
-          params:
-            GITHUB_TOKEN: ((github_token))
-            REPO_FULL_NAME: ((repo_full_name))
-          run:
-            path: sh
-            args:
-              - -exc
-              - |
-                echo "Running recipe-"
-                ls -latr /tmp/shared-binaries
+                mv cli-binary/advisor ./
+                chmod +x ./advisor
+                ./advisor build-config get --path=./repo
+                cat ./repo/target/.advisor/build-config.json
