@@ -47,8 +47,10 @@ jobs:
   - name: run-rewrite
     serial: true
     plan:
-      - get: repo
+      - get: every-3h
+        trigger: true
         passed: [cache-binary]
+      - get: repo
       - task: recipe-runner
         config:
           caches:
