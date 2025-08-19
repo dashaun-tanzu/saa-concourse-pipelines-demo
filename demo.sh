@@ -64,7 +64,7 @@ install_fly() {
             -v github_token="$GIT_TOKEN_FOR_PRS" \
             -v github_orgs="$GITHUB_ORGS" \
             -v api_base='https://api.github.com' \
-            -v maven.password="$MAVEN_PASSWORD" \
+            -v maven_password="$MAVEN_PASSWORD" \
             -v docker-hub-username="$DOCKER_USER" \
             -v docker-hub-password="$DOCKER_PASS" > /dev/null
     ./fly -t advisor-demo unpause-pipeline -p rewrite-spawner
