@@ -29,9 +29,9 @@ jobs:
       - get: repo
       - get: alpine
       - task: recipe-runner
+        image: alpine
         config:
           platform: linux
-          image: alpine
           inputs:
             - name: repo
           params:
