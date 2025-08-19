@@ -29,12 +29,12 @@ install_concourse() {
     curl -O https://concourse-ci.org/docker-compose.yml
     echo '      CONCOURSE_ENABLE_ACROSS_STEP: "true"' >> docker-compose.yml
     echo '      CONCOURSE_ENABLE_PIPELINE_INSTANCES: "true"' >> docker-compose.yml
-    sed -i '' 's/image: concourse\/concourse$/image: concourse\/concourse:7.14.1/' docker-compose.yml
-    sed -i '' "s|CONCOURSE_EXTERNAL_URL: http://localhost:8080|CONCOURSE_EXTERNAL_URL: $CONCOURSE_EXTERNAL_URL|g" docker-compose.yml
-    sed -i '' 's/8\.8\.8\.8/1.1.1.1/g' docker-compose.yml
-    sed -i '' 's/tutorial/dashaun-tanzu/g' docker-compose.yml
+    sed -i 's/image: concourse\/concourse$/image: concourse\/concourse:7.14.1/' docker-compose.yml
+    sed -i "s|CONCOURSE_EXTERNAL_URL: http://localhost:8080|CONCOURSE_EXTERNAL_URL: $CONCOURSE_EXTERNAL_URL|g" docker-compose.yml
+    sed -i 's/8\.8\.8\.8/1.1.1.1/g' docker-compose.yml
+    sed -i 's/tutorial/dashaun-tanzu/g' docker-compose.yml
 
-    docker compose down
+    docker compose down --remove-orphans
     docker compose up -d
 }
 
@@ -43,7 +43,7 @@ shutdown_concourse() {
 }
 
 install_fly() {
-    until curl 'http://localhost:8080/api/v1/cli?arch=arm64&platform=darwin' -o fly; do
+    until curl 'http://localhost:8080/api/v1/cli?arch=amd64&platform=linux' -o fly; do
         echo "Retrying..."
         sleep 1
     done
