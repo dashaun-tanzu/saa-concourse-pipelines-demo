@@ -3,10 +3,10 @@ resource_types:
     type: registry-image
     source: { repository: concourse/time-resource }
 resources:
-  - name: alpine
+  - name: ubuntu
     type: registry-image
     source:
-      repository: alpine
+      repository: ubuntu
       username: ((docker-hub-username))
       password: ((docker-hub-password))
   - name: periodic
@@ -27,9 +27,9 @@ jobs:
       - get: periodic
         trigger: true
       - get: repo
-      - get: alpine
+      - get: ubuntu
       - task: recipe-runner
-        image: alpine
+        image: ubuntu
         config:
           platform: linux
           inputs:
@@ -44,7 +44,6 @@ jobs:
               - -exc
               - |
                 set -e
-                apk add --no-cache curl tar
                 until curl -L -H "Authorization: Bearer $ARTIFACTORY_TOKEN" -o advisor-cli.tar -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
                   echo "Retrying..."
                   sleep 1
