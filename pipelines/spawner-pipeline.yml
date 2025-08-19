@@ -81,10 +81,13 @@ jobs:
                     full_name=$(echo "$row" | jq -r '.full_name')
                     clone_url=$(echo "$row" | jq -r '.clone_url')
                     safe_name=$(echo "$full_name" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+                    # Extract organization name (everything before the first '/')
+                    org_name=$(echo "$full_name" | cut -d'/' -f1 | tr '[:upper:]' '[:lower:]')
                     jq -n --arg full "$full_name" \
                           --arg clone "$clone_url" \
                           --arg safe "$safe_name" \
-                          '{full_name:$full, clone_url:$clone, safe_name:$safe}' >> "$tmp_json"
+                          --arg org "$org_name" \
+                          '{full_name:$full, clone_url:$clone, safe_name:$safe, org_name:$org}' >> "$tmp_json"
                   done
                 done
 
@@ -101,17 +104,52 @@ jobs:
                 # - full_name: org/repo
                 #   clone_url: https://github.com/org/repo.git
                 #   safe_name: org-repo
+                #   org_name: org
                 yq -P '.' /tmp/list.json > repos/repos.yml
                 echo "Wrote $(wc -l < repos/repos.yml) lines to repos/repos.yml"
       - load_var: repos
         file: repos/repos.yml
+      - task: extract-unique-orgs
+        image: alpine
+        config:
+          platform: linux
+          inputs:
+            - name: repos
+          outputs:
+            - name: orgs
+          run:
+            path: sh
+            args:
+              - -exc
+              - |
+                apk add --no-cache yq jq
+                
+                # Extract unique organization names from repos.yml
+                yq '.[] | .org_name' repos/repos.yml | sort | uniq > orgs/unique_orgs.txt
+                
+                # Convert to JSON array for load_var
+                jq -R -s 'split("\n") | map(select(length > 0))' orgs/unique_orgs.txt > orgs/orgs.json
+                
+                echo "Unique organizations found:"
+                cat orgs/unique_orgs.txt
+      - load_var: orgs
+        file: orgs/orgs.json
+      - across:
+          - var: org
+            values: ((.:orgs))
+        do:
+          - set_team: ((.:org))
+            config:
+              users: []
+              groups: []
       - across:
           - var: repo
             values: ((.:repos))
         do:
-        - set_pipeline: rewrite-((.:repo.safe_name))
-          file: templates/pipelines/repo-pipeline.yml
-          vars:
-            repo_full_name: ((.:repo.full_name))
-            repo_clone_url: ((.:repo.clone_url))
-            github_token: ((github_token))
+          - set_pipeline: rewrite-((.:repo.safe_name))
+            file: templates/pipelines/repo-pipeline.yml
+            team: ((.:repo.org_name))
+            vars:
+              repo_full_name: ((.:repo.full_name))
+              repo_clone_url: ((.:repo.clone_url))
+              github_token: ((github_token))
