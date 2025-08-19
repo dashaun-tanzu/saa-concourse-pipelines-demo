@@ -27,8 +27,8 @@ init() {
 
 install_concourse() {
     curl -O https://concourse-ci.org/docker-compose.yml
-    sed -i '' '/CONCOURSE_WORKER_RUNTIME: "containerd"/a\
-      CONCOURSE_ENABLE_ACROSS_STEP: "true"' docker-compose.yml
+    echo '      CONCOURSE_ENABLE_ACROSS_STEP: "true"' >> docker-compose.yml
+    echo '      CONCOURSE_ENABLE_PIPELINE_INSTANCES: "true"' >> docker-compose.yml
     sed -i '' 's/image: concourse\/concourse$/image: concourse\/concourse:7.14.0/' docker-compose.yml
     sed -i '' "s|CONCOURSE_EXTERNAL_URL: http://localhost:8080|CONCOURSE_EXTERNAL_URL: $CONCOURSE_EXTERNAL_URL|g" docker-compose.yml
     sed -i '' 's/8\.8\.8\.8/1.1.1.1/g' docker-compose.yml
@@ -48,8 +48,8 @@ install_fly() {
         echo "Retrying..."
         sleep 1
     done
-    export REGISTRY_IP="$(docker inspect $(docker compose ps -q registry) | grep -i ipaddress | grep -oP '\d+\.\d+\.\d+\.\d+' | tail -1)"
-    echo $REGISTRY_IP
+#    export REGISTRY_IP="$(docker inspect $(docker compose ps -q registry) | grep -i ipaddress | grep -oP '\d+\.\d+\.\d+\.\d+' | tail -1)"
+#    echo $REGISTRY_IP
     chmod +x ./fly
     ./fly -t advisor-demo login -c http://localhost:8080 -u test -p test -n main
     ./fly -t advisor-demo set-pipeline -n \
@@ -58,7 +58,9 @@ install_fly() {
             -v github_token="$GIT_TOKEN_FOR_PRS" \
             -v github_orgs='["dashaun-demo"]' \
             -v api_base='https://api.github.com' \
-            -v maven.password="$MAVEN_PASSWORD"
+            -v maven.password="$MAVEN_PASSWORD" \
+            -v docker-hub-username="$DOCKER_USER" \
+            -v docker-hub-password="$DOCKER_PASS"
     ./fly -t advisor-demo unpause-pipeline -p rewrite-spawner
     ./fly -t advisor-demo trigger-job -j rewrite-spawner/discover-and-spawn
 }

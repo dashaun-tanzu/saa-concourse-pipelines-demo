@@ -1,13 +1,18 @@
 resource_types:
   - name: time
     type: registry-image
-    source: { repository: concourse/time-resource }
+    source:
+      repository: concourse/time-resource
+      username: ((docker-hub-username))
+      password: ((docker-hub-password))
 
 resources:
   - name: alpine
     type: registry-image
     source:
       repository: alpine
+      username: ((docker-hub-username))
+      password: ((docker-hub-password))
   - name: periodic
     type: time
     source:
@@ -104,9 +109,10 @@ jobs:
           - var: repo
             values: ((.:repos))
         do:
-        - set_pipeline: rewrite-((.:repo.safe_name))
+        - set_pipeline: rewrite-pipeline
           file: templates/pipelines/repo-pipeline.yml
           vars:
+            repo_safe_name: ((.:repo.safe_name))
             repo_full_name: ((.:repo.full_name))
             repo_clone_url: ((.:repo.clone_url))
             github_token: ((github_token))
