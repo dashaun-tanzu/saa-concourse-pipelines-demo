@@ -109,7 +109,7 @@ jobs:
           - var: repo
             values: ((.:repos))
         do:
-        - set_pipeline: rewrite-pipeline
+        - set_pipeline: rewrite-((.:repo.safe_name))
           file: templates/pipelines/repo-pipeline.yml
           vars:
             repo_full_name: ((.:repo.full_name))
