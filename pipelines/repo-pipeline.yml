@@ -44,7 +44,7 @@ jobs:
               - -exc
               - |
                 set -e
-                apt update && apt install curl tar -y
+                apt update && apt install curl tar zip unzip -y
                 curl -s "https://get.sdkman.io?ci=true" | bash
                 source "/root/.sdkman/bin/sdkman-init.sh"
                 until curl -L -H "Authorization: Bearer $ARTIFACTORY_TOKEN" -o advisor-cli.tar -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
