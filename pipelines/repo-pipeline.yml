@@ -44,6 +44,7 @@ jobs:
               - -exc
               - |
                 set -e
+                bash
                 apt update && apt install curl tar zip unzip -y
                 curl -s "https://get.sdkman.io?ci=true" | bash
                 . /root/.sdkman/bin/sdkman-init.sh
