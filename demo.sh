@@ -84,6 +84,14 @@ displayMessage() {
     echo
 }
 
+publish_runner() {
+  cd ../docker
+  echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+  docker build -t scpd-runner:latest .
+  docker tag scpd-runner:latest $DOCKER_USER/scpd-runner:latest
+  docker push $DOCKER_USER/scpd-runner:latest
+}
+
 # Main execution flow
 
 main() {
@@ -97,6 +105,7 @@ main() {
     init
     install_concourse
     install_fly
+    publish_runner
 }
 
 main

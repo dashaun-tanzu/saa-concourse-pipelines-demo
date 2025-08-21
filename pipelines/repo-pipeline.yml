@@ -6,7 +6,7 @@ resources:
   - name: ubuntu
     type: registry-image
     source:
-      repository: ubuntu
+      repository: ((docker-hub-username))/scpd-runner
       username: ((docker-hub-username))
       password: ((docker-hub-password))
   - name: periodic
@@ -43,9 +43,6 @@ jobs:
               - -lc
               - |
                 set -Eeo pipefail
-                export DEBIAN_FRONTEND=noninteractive
-                apt update && apt install -y curl jq
-                
                 echo "Checking for open pull requests in ${REPO_FULL_NAME}..."
                 
                 # Get open pull requests from GitHub API
@@ -86,10 +83,6 @@ jobs:
               - -lc
               - |
                 set -Eeo pipefail
-                export DEBIAN_FRONTEND=noninteractive
-                apt update && apt install -y curl tar zip unzip
-                curl -s "https://get.sdkman.io?ci=true" | bash
-                source "/root/.sdkman/bin/sdkman-init.sh"
                 until curl -L -H "Authorization: Bearer $ARTIFACTORY_TOKEN" \
                   -o advisor-cli.tar \
                   -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
@@ -103,7 +96,7 @@ jobs:
                   sdk env install
                 else
                   sdk install java 21.0.2-graalce
-                  sdk use java 21.0.2-graalce
+                  sdk default java 21.0.2-graalce
                 fi
                 cd ..
                 chmod +x ./advisor
