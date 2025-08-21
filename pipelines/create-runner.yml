@@ -18,28 +18,9 @@ jobs:
     plan:
       - get: source-code
         trigger: true
-      - task: build-docker-image
-        privileged: true
-        config:
-          platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: vito/oci-build-task
-              tag: latest
-          inputs:
-            - name: source-code
-          outputs:
-            - name: image
-          params:
-            CONTEXT: source-code
-            DOCKERFILE: source-code/docker/Dockerfile
-            UNPACK_ROOTFS: "true"
-          run:
-            path: build
-
       - put: docker-image
         params:
-          image: image/image.tar
-          additional_tags: source-code/.git/ref
+          build: source-code
+          dockerfile: source-code/docker/Dockerfile
+          tag_file: source-code/.git/ref
           tag_as_latest: true
