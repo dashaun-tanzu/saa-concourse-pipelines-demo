@@ -28,6 +28,48 @@ jobs:
         trigger: true
       - get: repo
       - get: ubuntu
+      - task: check-pull-requests
+        image: ubuntu
+        config:
+          platform: linux
+          inputs:
+            - name: repo
+          params:
+            GITHUB_TOKEN: ((github_token))
+            REPO_FULL_NAME: ((repo_full_name))
+          run:
+            path: bash
+            args:
+              - -lc
+              - |
+                set -Eeo pipefail
+                export DEBIAN_FRONTEND=noninteractive
+                apt update && apt install -y curl jq
+                
+                echo "Checking for open pull requests in ${REPO_FULL_NAME}..."
+                
+                # Get open pull requests from GitHub API
+                PR_RESPONSE=$(curl -s \
+                  -H "Authorization: Bearer $GITHUB_TOKEN" \
+                  -H "Accept: application/vnd.github.v3+json" \
+                  "https://api.github.com/repos/${REPO_FULL_NAME}/pulls?state=open")
+                
+                # Check if there are any PRs
+                PR_COUNT=$(echo "$PR_RESPONSE" | jq '. | length')
+                
+                if [ "$PR_COUNT" -eq 0 ]; then
+                  echo "No open pull requests found."
+                else
+                  echo "Found $PR_COUNT open pull request(s):"
+                  echo "=================================="
+                
+                  # Extract and display PR titles
+                  echo "$PR_RESPONSE" | jq -r '.[] | "- PR #\(.number): \(.title)"'
+                
+                  echo "=================================="
+                  echo "Pull request details:"
+                  echo "$PR_RESPONSE" | jq -r '.[] | "PR #\(.number): \(.title)\n  Author: \(.user.login)\n  Created: \(.created_at)\n  URL: \(.html_url)\n"'
+                fi
       - task: recipe-runner
         image: ubuntu
         config:
