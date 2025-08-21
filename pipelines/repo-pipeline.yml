@@ -45,12 +45,22 @@ jobs:
               - |
                 set -e
                 apt update && apt install curl tar -y
+                curl -s "https://get.sdkman.io?ci=true" | bash
+                source "/root/.sdkman/bin/sdkman-init.sh"
                 until curl -L -H "Authorization: Bearer $ARTIFACTORY_TOKEN" -o advisor-cli.tar -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
                   echo "Retrying..."
                   sleep 1
                 done
                 tar -xf advisor-cli.tar
                 mv cli-binary/advisor ./
+                cd repo
+                if [ -f ".sdkmanrc" ]; then
+                  sdk env install
+                else
+                  sdk install java 21.0.2-graalce
+                  sdk use java 21.0.2-graalce
+                fi
+                cd ..
                 chmod +x ./advisor
                 ./advisor build-config get --path=./repo
                 cat ./repo/target/.advisor/build-config.json
