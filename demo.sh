@@ -33,6 +33,7 @@ install_concourse() {
     sed -i "s|CONCOURSE_EXTERNAL_URL: http://localhost:8080|CONCOURSE_EXTERNAL_URL: $CONCOURSE_EXTERNAL_URL|g" docker-compose.yml
     sed -i 's/8\.8\.8\.8/1.1.1.1/g' docker-compose.yml
     sed -i 's/tutorial/dashaun-tanzu/g' docker-compose.yml
+    sed -i 's/overlay/naive/g' docker-compose.yml
 
     docker compose down --remove-orphans
     docker compose up -d
