@@ -43,11 +43,11 @@ jobs:
             args:
               - -lc
               - |
-                set -Eeuo pipefail
+                set -Eeo pipefail
                 export DEBIAN_FRONTEND=noninteractive
                 apt update && apt install -y curl tar zip unzip
                 curl -s "https://get.sdkman.io?ci=true" | bash
-                source /root/.sdkman/bin/sdkman-init.sh
+                source "/root/.sdkman/bin/sdkman-init.sh"
                 until curl -L -H "Authorization: Bearer $ARTIFACTORY_TOKEN" \
                   -o advisor-cli.tar \
                   -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
