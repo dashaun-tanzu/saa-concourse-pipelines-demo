@@ -1,3 +1,25 @@
+resource_types:
+  - name: time
+    type: registry-image
+    source: { repository: concourse/time-resource }
+resources:
+  - name: ubuntu
+    type: registry-image
+    source:
+      repository: ubuntu
+      username: ((docker-hub-username))
+      password: ((docker-hub-password))
+  - name: periodic
+    type: time
+    source:
+      interval: 12h
+  - name: repo
+    type: git
+    source:
+      uri: ((repo_clone_url))
+      branch: main
+      username: x-access-token
+      password: ((github_token))
 jobs:
   - name: detect-drift
     serial: true
