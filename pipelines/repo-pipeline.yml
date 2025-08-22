@@ -86,7 +86,7 @@ jobs:
               - -lc
               - |
                 set -Eeo pipefail
-                until curl -L -H "Authorization: Bearer MAVEN_PASSWORD" \
+                until curl -L -H "Authorization: Bearer $MAVEN_PASSWORD" \
                   -o advisor-cli.tar \
                   -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
                   echo "Retrying..."
