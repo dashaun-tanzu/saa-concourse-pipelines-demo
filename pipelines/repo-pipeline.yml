@@ -76,14 +76,15 @@ jobs:
           params:
             GIT_TOKEN_FOR_PRS: ((github_token))
             REPO_FULL_NAME: ((repo_full_name))
-            ARTIFACTORY_TOKEN: ((maven_password))
+            MAVEN_PASSWORD: ((maven_password))
+            MAVEN_USERNAME: ((maven_username))
           run:
             path: bash
             args:
               - -lc
               - |
                 set -Eeo pipefail
-                until curl -L -H "Authorization: Bearer $ARTIFACTORY_TOKEN" \
+                until curl -L -H "Authorization: Bearer MAVEN_PASSWORD" \
                   -o advisor-cli.tar \
                   -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
                   echo "Retrying..."
@@ -92,7 +93,8 @@ jobs:
                 tar -xf advisor-cli.tar
                 mv cli-binary/advisor ./
                 cd repo
-                
+                sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
+                sed -i "s/MAVEN_PASSWORD/$MAVEN_PASSWORD/g" /root/.m2/settings.xml
                 if [[ $(gh pr list --state open --json number | jq length) -eq 0 ]]; then
                   echo "No open PRs found"
                 else

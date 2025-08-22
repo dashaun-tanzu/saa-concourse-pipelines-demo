@@ -123,3 +123,4 @@ jobs:
               repo_clone_url: ((.:repo.clone_url))
               github_token: ((github_token))
               maven_password: ((maven_password))
+              maven_username: ((maven_username))
