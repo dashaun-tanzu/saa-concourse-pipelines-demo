@@ -109,6 +109,8 @@ jobs:
                 fi
                 cd ..
                 chmod +x ./advisor
-                ./advisor build-config get --path=./repo
-                ./advisor upgrade-plan get --path=./repo
-                ./advisor upgrade-plan apply --push --path=./repo
+                install ./advisor /usr/local/bin
+                cd repo
+                advisor build-config get
+                advisor upgrade-plan get
+                advisor upgrade-plan apply --push
