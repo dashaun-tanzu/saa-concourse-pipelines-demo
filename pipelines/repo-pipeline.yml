@@ -93,10 +93,10 @@ jobs:
                 mv cli-binary/advisor ./
                 cd repo
                 
-                if [[ -z $(gh pr list --state open) ]]; then
-                  echo "No open PRs"
+                if [[ $(gh pr list --state open --json number | jq length) -eq 0 ]]; then
+                  echo "No open PRs found"
                 else
-                  echo "There are open PRs"
+                  echo "Open PRs found - task successful"
                   exit 0
                 fi
                 
