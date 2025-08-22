@@ -92,6 +92,7 @@ jobs:
                 tar -xf advisor-cli.tar
                 mv cli-binary/advisor ./
                 cd repo
+                source "$HOME/.sdkman/bin/sdkman-init.sh"
                 if [[ -f ".sdkmanrc" ]]; then
                   sdk env install
                 else
