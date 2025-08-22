@@ -74,7 +74,7 @@ jobs:
           inputs:
             - name: repo
           params:
-            GITHUB_TOKEN: ((github_token))
+            GIT_TOKEN_FOR_PRS: ((github_token))
             REPO_FULL_NAME: ((repo_full_name))
             ARTIFACTORY_TOKEN: ((maven_password))
           run:
@@ -92,6 +92,14 @@ jobs:
                 tar -xf advisor-cli.tar
                 mv cli-binary/advisor ./
                 cd repo
+                
+                if [[ -z $(gh pr list --state open) ]]; then
+                  echo "No open PRs"
+                else
+                  echo "There are open PRs"
+                  exit 0
+                fi
+                
                 source "$HOME/.sdkman/bin/sdkman-init.sh"
                 if [[ -f ".sdkmanrc" ]]; then
                   sdk env install
@@ -103,3 +111,5 @@ jobs:
                 chmod +x ./advisor
                 ./advisor build-config get --path=./repo
                 cat ./repo/target/.advisor/build-config.json
+                ./advisor upgrade-plan get
+                ./advisor upgrade-plan apply --push
