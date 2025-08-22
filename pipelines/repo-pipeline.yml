@@ -110,6 +110,5 @@ jobs:
                 cd ..
                 chmod +x ./advisor
                 ./advisor build-config get --path=./repo
-                cat ./repo/target/.advisor/build-config.json
-                ./advisor upgrade-plan get
-                ./advisor upgrade-plan apply --push
+                ./advisor upgrade-plan get --path=./repo
+                ./advisor upgrade-plan apply --push --path=./repo
