@@ -58,7 +58,7 @@ jobs:
                 chmod +x cli-binary/advisor
                 cli-binary/advisor -v
                 install cli-binary/advisor /usr/local/bin
-                advisor -version
+                advisor -v
                 
                 cd repo
                 sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
@@ -70,23 +70,18 @@ jobs:
                   echo "Open PRs found - task successful"
                   exit 0
                 fi
-                
-                source "$HOME/.sdkman/bin/sdkman-init.sh"
-                if [[ -f ".sdkmanrc" ]]; then
-                  # sdk env install
-                  sdk install java 21.0.6-librca
-                  sdk default java 21.0.6-librca
-                  sdk use java 21.0.6-librca
-                else
-                  sdk install java 21.0.6-librca
-                  sdk default java 21.0.6-librca
-                  sdk use java 21.0.6-librca
-                fi
 
-                ls
-                echo "build config"
                 advisor build-config get
-                echo "upgrade plan"
+                
+                echo "*** git-metadata ***"
+                cat target/.advisor/build-config.json | jq '."git-metadata"'
+                echo "***"
+                
                 advisor upgrade-plan get
-                echo "apply"
+                
                 advisor upgrade-plan apply --push
+                if [ $? -ne 0 ]; then
+                  echo "Error: Command failed with exit status $?"
+                  cat .advisor/errors/*
+                  exit 1
+                fi
