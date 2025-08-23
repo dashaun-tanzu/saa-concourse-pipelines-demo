@@ -47,6 +47,7 @@ jobs:
               - -lc
               - |
                 set -Eeo pipefail
+                echo "Install advisor and validate its working"
                 until curl -L -H "Authorization: Bearer $MAVEN_PASSWORD" \
                   -o advisor-cli.tar \
                   -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
@@ -54,7 +55,11 @@ jobs:
                   sleep 1
                 done
                 tar -xf advisor-cli.tar
-                mv cli-binary/advisor ./
+                chmod +x cli-binary/advisor
+                cli-binary/advisor -v
+                install cli-binary/advisor /usr/local/bin
+                advisor -version
+                
                 cd repo
                 sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
                 sed -i "s/MAVEN_PASSWORD/$MAVEN_PASSWORD/g" /root/.m2/settings.xml
@@ -77,13 +82,8 @@ jobs:
                   sdk default java 21.0.6-librca
                   sdk use java 21.0.6-librca
                 fi
-                cd ..
-                chmod +x ./advisor
-                cat /root/.m2/settings.xml
-                ./advisor -version
-                install ./advisor /usr/local/bin
-                advisor -version
-                cd repo
+
+
                 ls
                 echo "build config"
                 advisor build-config get
