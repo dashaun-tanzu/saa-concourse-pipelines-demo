@@ -79,6 +79,7 @@ jobs:
                 fi
                 cd ..
                 chmod +x ./advisor
+                cat /root/.m2/settings.xml
                 ./advisor -version
                 install ./advisor /usr/local/bin
                 advisor -version
