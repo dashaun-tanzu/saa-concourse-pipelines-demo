@@ -83,11 +83,14 @@ jobs:
                     safe_name=$(echo "$full_name" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
                     # Extract organization name (everything before the first '/')
                     org_name=$(echo "$full_name" | cut -d'/' -f1 | tr '[:upper:]' '[:lower:]')
+                    # Extract repository name (everything after the first '/')
+                    repo_name=$(echo "$full_name" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
                     jq -n --arg full "$full_name" \
                           --arg clone "$clone_url" \
                           --arg safe "$safe_name" \
                           --arg org "$org_name" \
-                          '{full_name:$full, clone_url:$clone, safe_name:$safe, org_name:$org}' >> "$tmp_json"
+                          --arg repo "$repo_name" \
+                          '{full_name:$full, clone_url:$clone, safe_name:$safe, org_name:$org, repo_name:$repo}' >> "$tmp_json"
                   done
                 done
 
@@ -105,6 +108,7 @@ jobs:
                 #   clone_url: https://github.com/org/repo.git
                 #   safe_name: org-repo
                 #   org_name: org
+                #   repo_name: repo
                 yq -P '.' /tmp/list.json > repos/repos.yml
                 echo "Wrote $(wc -l < repos/repos.yml) lines to repos/repos.yml"
       - load_var: repos
@@ -113,7 +117,7 @@ jobs:
           - var: repo
             values: ((.:repos))
         do:
-          - set_pipeline: ((.:repo.safe_name))
+          - set_pipeline: ((.:repo.repo_name))
             file: templates/pipelines/repo-pipeline.yml
             team: ((.:repo.org_name))
             vars:

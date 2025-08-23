@@ -69,9 +69,13 @@ jobs:
                 source "$HOME/.sdkman/bin/sdkman-init.sh"
                 if [[ -f ".sdkmanrc" ]]; then
                   sdk env install
+                  sdk install java 21.0.2-graalce
+                  sdk default java 21.0.2-graalce
+                  sdk use java 21.0.2-graalce
                 else
                   sdk install java 21.0.2-graalce
                   sdk default java 21.0.2-graalce
+                  sdk use java 21.0.2-graalce
                 fi
                 cd ..
                 chmod +x ./advisor
