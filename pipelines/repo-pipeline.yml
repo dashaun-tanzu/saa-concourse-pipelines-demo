@@ -82,7 +82,10 @@ jobs:
                   sdk default java 21.0.6-librca
                   sdk use java 21.0.6-librca
                 fi
-
+                  
+                  
+                export SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_URI=https://github.com/dashaun-tanzu/advisor-mappings.git
+                export SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_PATH=.advisor/mappings/
 
                 ls
                 echo "build config"
