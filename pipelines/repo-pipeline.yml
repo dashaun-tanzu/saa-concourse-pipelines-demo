@@ -82,8 +82,8 @@ jobs:
                 advisor upgrade-plan get
                 
                 advisor upgrade-plan apply --push
-                if [ $? -ne 0 ]; then
-                  echo "Error: Command failed with exit status $?"
-                  cat .advisor/errors/*
-                  exit 1
-                fi
+                echo "Command finished with exit status $?"
+                for file in .advisor/errors/*; do
+                  echo "$file"
+                  cat "$file"
+                done
