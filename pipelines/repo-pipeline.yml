@@ -61,6 +61,7 @@ jobs:
                 advisor -v
                 
                 cd repo
+                git checkout main
                 sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
                 sed -i "s/MAVEN_PASSWORD/$MAVEN_PASSWORD/g" /root/.m2/settings.xml
                 echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
