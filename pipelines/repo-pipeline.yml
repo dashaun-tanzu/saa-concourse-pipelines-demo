@@ -81,9 +81,11 @@ jobs:
                 
                 advisor upgrade-plan get
                 
-                advisor upgrade-plan apply --push
-                echo "Command finished with exit status $?"
-                for file in .advisor/errors/*; do
-                  echo "$file"
-                  cat "$file"
-                done
+                set +e
+                advisor upgrade-plan apply --push || {
+                  for file in .advisor/errors/*; do
+                    echo "$file"
+                    cat "$file"
+                  done
+                }
+                set -e
