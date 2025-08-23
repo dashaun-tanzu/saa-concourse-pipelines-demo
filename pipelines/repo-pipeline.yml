@@ -70,6 +70,8 @@ jobs:
                   echo "Open PRs found - task successful"
                   exit 0
                 fi
+                
+                source "$HOME/.sdkman/bin/sdkman-init.sh"
 
                 advisor build-config get
                 
