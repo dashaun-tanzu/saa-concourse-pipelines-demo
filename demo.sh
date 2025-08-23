@@ -34,6 +34,7 @@ install_concourse() {
     sed -i 's/overlay/naive/g' docker-compose.yml
 
     docker compose down --remove-orphans
+    docker volume prune -f
     docker compose up -d
 }
 
@@ -104,7 +105,7 @@ main() {
     init
     install_concourse
     install_fly
-    publish_runner
+    #publish_runner
 }
 
 main
