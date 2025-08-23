@@ -40,7 +40,7 @@ jobs:
             MAVEN_PASSWORD: ((maven_password))
             MAVEN_USERNAME: ((maven_username))
             SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_URI: https://github.com/dashaun-tanzu/advisor-mappings.git
-            SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_PATH: .advisor/mappings/
+            SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_PATH: mappings/
           run:
             path: bash
             args:
