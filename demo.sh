@@ -32,6 +32,8 @@ install_concourse() {
     sed -i 's/8\.8\.8\.8/1.1.1.1/g' docker-compose.yml
     sed -i 's/tutorial/dashaun-tanzu/g' docker-compose.yml
     sed -i 's/overlay/naive/g' docker-compose.yml
+    echo '    restart: unless-stopped' >> docker-compose.yml
+
 
     docker compose down --remove-orphans
     docker volume prune -f
