@@ -5,6 +5,21 @@
 
 set -e  # Exit on any error
 
+# Configuration - read from environment variables if available
+TARGET_ORG="${TARGET_ORG:-dashaun-demo}"
+
+# Convert comma-separated SOURCE_REPOS env var to array, or use defaults
+if [ -n "$SOURCE_REPOS" ]; then
+    IFS=',' read -ra SOURCE_REPOS_ARRAY <<< "$SOURCE_REPOS"
+else
+    SOURCE_REPOS_ARRAY=(
+        "dashaun/spring-petclinic"
+        "dashaun/xyz.gofastforever.account"
+        "dashaun/logback-logstash-elastic-demo"
+        "dashaun/spring-cloud-vault-demo"
+    )
+fi
+
 echo "🚀 Starting GitHub repository management for org: $TARGET_ORG"
 
 # Function to check if gh CLI is authenticated
@@ -47,7 +62,7 @@ delete_target_org_repos() {
 fork_repositories() {
     echo "🍴 Forking repositories into $TARGET_ORG..."
 
-    for repo in "${SOURCE_REPOS[@]}"; do
+    for repo in "${SOURCE_REPOS_ARRAY[@]}"; do
         echo "  Forking $repo..."
 
         # Fork the repository into the target org
@@ -78,6 +93,16 @@ setup_notifications() {
     while IFS= read -r repo; do
         if [ -n "$repo" ]; then
             echo "  Setting up notifications for $TARGET_ORG/$repo..."
+
+            # Enable issues
+            gh api \
+                --method PATCH \
+                "/repos/$TARGET_ORG/$repo" \
+                --field has_issues=true \
+                || {
+                    echo "    ⚠️  Failed to set up issues for $TARGET_ORG/$repo"
+                    continue
+                }
 
             # Subscribe to the repository (this enables all notifications including PRs)
             gh api \
@@ -120,7 +145,7 @@ main() {
     echo "========================================="
     echo "GitHub Repository Management Script"
     echo "Target Org: $TARGET_ORG"
-    echo "Source Repos: ${#SOURCE_REPOS[@]} repositories"
+    echo "Source Repos: ${#SOURCE_REPOS_ARRAY[@]} repositories"
     echo "========================================="
 
     check_gh_auth
@@ -145,7 +170,7 @@ main() {
     echo ""
     echo "🎉 All operations completed successfully!"
     echo "   - All repositories in '$TARGET_ORG' have been deleted"
-    echo "   - ${#SOURCE_REPOS[@]} repositories have been forked"
+    echo "   - ${#SOURCE_REPOS_ARRAY[@]} repositories have been forked"
     echo "   - Pull request notifications are enabled"
     echo ""
     echo "💡 Tips:"
