@@ -22,6 +22,7 @@ resources:
       password: ((github_token))
 jobs:
   - name: detect-drift
+    max_in_flight: 1
     serial: true
     plan:
       - get: periodic
