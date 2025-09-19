@@ -84,7 +84,9 @@ jobs:
                   
                   if ! git diff --quiet || ! git diff --cached --quiet; then
                     git config --global user.email "$GIT_EMAIL"
+                    git config --global user.name "DaShaun"
                     echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
+                    gh auth setup-git
                     BRANCH_NAME="MavenUpgradeSpringBootToLatestPatch-$(date +%Y%m%d-%H%M%S)"          
                     git checkout -b "$BRANCH_NAME"
                     git add .
