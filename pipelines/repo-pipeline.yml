@@ -83,6 +83,8 @@ jobs:
                   ./mvnw org.openrewrite.maven:rewrite-maven-plugin:run -Drewrite.configLocation=https://raw.githubusercontent.com/dashaun-tanzu/openrewrite-recipes/refs/heads/main/MavenUpgradeSpringBootToLatestPatch.yaml -Drewrite.activeRecipes=com.dashaun.openrewrite.MavenUpgradeSpringBootToLatestPatch
                   
                   if ! git diff --quiet || ! git diff --cached --quiet; then
+                    git config --global user.email "$GIT_EMAIL"
+                    echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
                     BRANCH_NAME="MavenUpgradeSpringBootToLatestPatch-$(date +%Y%m%d-%H%M%S)"          
                     git checkout -b "$BRANCH_NAME"
                     git add .
@@ -91,7 +93,7 @@ jobs:
                   
                     # Create PR if gh CLI is available
                     if command -v gh &> /dev/null; then
-                      gh pr create --title "Auto-generated changes" --body "Changes pushed automatically"
+                      gh pr create --title "MavenUpgradeSpringBootToLatestPatch" --body "MavenUpgradeSpringBootToLatestPatch"
                       echo "Pull request created!"
                     else
                       echo "Branch pushed. Create PR manually at your repository."
@@ -100,14 +102,12 @@ jobs:
                     echo "No changes to commit."
                   fi
                 else
-                  echo "Upgrade available: $output"
+                  set +e
+                  advisor upgrade-plan apply --push || {
+                    for file in .advisor/errors/*; do
+                      echo "$file"
+                      cat "$file"
+                    done
+                  }
+                  set -e
                 fi
-                
-                set +e
-                advisor upgrade-plan apply --push || {
-                  for file in .advisor/errors/*; do
-                    echo "$file"
-                    cat "$file"
-                  done
-                }
-                set -e
