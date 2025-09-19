@@ -51,7 +51,7 @@ jobs:
                 echo "Install advisor and validate its working"
                 until curl -L -H "Authorization: Bearer $MAVEN_PASSWORD" \
                   -o advisor-cli.tar \
-                  -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.0/application-advisor-cli-linux-1.4.0.tar; do
+                  -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.1/application-advisor-cli-linux-1.4.1.tar; do
                   echo "Retrying..."
                   sleep 1
                 done
@@ -77,11 +77,31 @@ jobs:
 
                 advisor build-config get
                 
-                echo "*** git-metadata ***"
-                cat target/.advisor/build-config.json | jq '."git-metadata"'
-                echo "***"
-                
-                advisor upgrade-plan get
+                output=$(advisor upgrade-plan get)
+                if [[ $output == *"No upgrade plans available"* ]]; then
+                  echo "No upgrades available, but maybe there is a patch version..."
+                  ./mvnw org.openrewrite.maven:rewrite-maven-plugin:run -Drewrite.configLocation=https://raw.githubusercontent.com/dashaun-tanzu/openrewrite-recipes/MavenUpgradeSpringBootToLatestPatch.yaml -Drewrite.activeRecipes=com.dashaun.openrewrite.MavenUpgradeSpringBootToLatestPatch
+                  
+                  if ! git diff --quiet || ! git diff --cached --quiet; then
+                    BRANCH_NAME="MavenUpgradeSpringBootToLatestPatch-$(date +%Y%m%d-%H%M%S)"          
+                    git checkout -b "$BRANCH_NAME"
+                    git add .
+                    git commit -m "Auto-commit: $(date)"
+                    git push -u origin "$BRANCH_NAME"
+                  
+                    # Create PR if gh CLI is available
+                    if command -v gh &> /dev/null; then
+                      gh pr create --title "Auto-generated changes" --body "Changes pushed automatically"
+                      echo "Pull request created!"
+                    else
+                      echo "Branch pushed. Create PR manually at your repository."
+                    fi
+                  else
+                    echo "No changes to commit."
+                  fi
+                else
+                  echo "Upgrade available: $output"
+                fi
                 
                 set +e
                 advisor upgrade-plan apply --push || {
