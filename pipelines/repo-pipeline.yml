@@ -92,14 +92,8 @@ jobs:
                     git add .
                     git commit -m "Auto-commit: $(date)"
                     git push -u origin "$BRANCH_NAME"
-                  
-                    # Create PR if gh CLI is available
-                    if command -v gh &> /dev/null; then
-                      gh pr create --title "MavenUpgradeSpringBootToLatestPatch" --body "MavenUpgradeSpringBootToLatestPatch"
-                      echo "Pull request created!"
-                    else
-                      echo "Branch pushed. Create PR manually at your repository."
-                    fi
+                    gh pr create --title "MavenUpgradeSpringBootToLatestPatch" --body "MavenUpgradeSpringBootToLatestPatch"
+                    echo "Pull request created!"
                   else
                     echo "No changes to commit."
                   fi
