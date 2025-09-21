@@ -92,6 +92,7 @@ jobs:
                     git add .
                     git commit -m "Auto-commit: $(date)"
                     git push -u origin "$BRANCH_NAME"
+                    gh repo set-default $REPO_FULL_NAME
                     gh pr create --title "MavenUpgradeSpringBootToLatestPatch" --body "MavenUpgradeSpringBootToLatestPatch"
                     echo "Pull request created!"
                   else
