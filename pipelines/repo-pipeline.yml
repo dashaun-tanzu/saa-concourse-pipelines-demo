@@ -90,10 +90,11 @@ jobs:
                     BRANCH_NAME="MavenUpgradeSpringBootToLatestPatch-$(date +%Y%m%d-%H%M%S)"          
                     git checkout -b "$BRANCH_NAME"
                     git add .
-                    git commit -m "Auto-commit: $(date)"
+                    DATE=$(date)
+                    git commit -m "$BRANCH_NAME"
                     git push -u origin "$BRANCH_NAME"
                     gh repo set-default $REPO_FULL_NAME
-                    gh pr create --title "MavenUpgradeSpringBootToLatestPatch" --body "MavenUpgradeSpringBootToLatestPatch" --repo $REPO_FULL_NAME
+                    gh pr create --repo $REPO_FULL_NAME --fill --push
                     echo "Pull request created!"
                   else
                     echo "No changes to commit."
