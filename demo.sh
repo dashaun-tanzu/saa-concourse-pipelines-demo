@@ -42,9 +42,7 @@ cat >> docker-compose.yml << 'EOF'
     container_name: nexus
     ports:
       - "8081:8081"
-    restart: always
-    volumes:
-      - "./nexus-data:/nexus-data"
+    restart: unless-stopped
 EOF
 
     docker compose down --remove-orphans
