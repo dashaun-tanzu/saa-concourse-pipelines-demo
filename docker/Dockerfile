@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y curl tar zip unzip jq git gh && mkdir -
 # Install SDKMAN!
 RUN curl -s "https://get.sdkman.io?ci=true" | bash
 
-RUN source "/root/.sdkman/bin/sdkman-init.sh" && sdk install java 21.0.6-librca && sdk default java 21.0.6-librca && sdk use java 21.0.6-librca
+RUN source "/root/.sdkman/bin/sdkman-init.sh" && sdk install java 21.0.8-librca && sdk default java 21.0.8-librca && sdk use java 21.0.8-librca
 
 ADD settings.xml /root/.m2/
 
