@@ -1,6 +1,14 @@
 <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+    <mirrors>
+        <mirror>
+            <id>nexus</id>
+            <mirrorOf>*,!spring-enterprise</mirrorOf>
+            <name>Nexus Public Repository</name>
+            <url>http://nexus:8081/repository/maven-public/</url>
+        </mirror>
+    </mirrors>
     <servers>
         <server>
             <id>spring-enterprise</id>
