@@ -32,8 +32,19 @@ install_concourse() {
     sed -i 's/8\.8\.8\.8/1.1.1.1/g' docker-compose.yml
     sed -i 's/tutorial/dashaun-tanzu/g' docker-compose.yml
     sed -i 's/overlay/naive/g' docker-compose.yml
-    echo '    restart: unless-stopped' >> docker-compose.yml
 
+    #Add Nexus
+    # shellcheck disable=SC1073
+cat >> docker-compose.yaml << 'EOF'
+  nexus:
+    image: sonatype/nexus3
+    container_name: nexus
+    ports:
+      - "8081:8081"
+    restart: always
+    volumes:
+      - "./nexus-data:/nexus-data"
+EOF
 
     docker compose down --remove-orphans
     docker volume prune -f
