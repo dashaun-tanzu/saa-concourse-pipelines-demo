@@ -25,7 +25,7 @@
             <repositories>
                 <repository>
                     <id>central</id>
-                    <url>http://central</url>
+                    <url>http://nexus:8081/repository/maven-public/</url>
                     <releases>
                         <enabled>true</enabled>
                     </releases>
@@ -41,7 +41,7 @@
             <pluginRepositories>
                 <pluginRepository>
                     <id>central</id>
-                    <url>http://central</url>
+                    <url>http://nexus:8081/repository/maven-public/</url>
                     <releases>
                         <enabled>true</enabled>
                     </releases>
