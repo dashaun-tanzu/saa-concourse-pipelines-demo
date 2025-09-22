@@ -74,7 +74,7 @@ jobs:
                 fi
                 
                 source "$HOME/.sdkman/bin/sdkman-init.sh"
-
+                sdk use java 21.0.8-librca
                 advisor build-config get
                 
                 output=$(advisor upgrade-plan get)
