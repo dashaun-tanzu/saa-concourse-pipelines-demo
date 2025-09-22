@@ -36,7 +36,7 @@ install_concourse() {
 
     #Add Nexus
     # shellcheck disable=SC1073
-cat >> docker-compose.yaml << 'EOF'
+cat >> docker-compose.yml << 'EOF'
   nexus:
     image: sonatype/nexus3
     container_name: nexus
