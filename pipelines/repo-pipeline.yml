@@ -65,6 +65,11 @@ jobs:
                 git checkout main
                 sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
                 sed -i "s/MAVEN_PASSWORD/$MAVEN_PASSWORD/g" /root/.m2/settings.xml
+                echo "***"
+                cat /root/.m2/settings.xml
+                echo "***"
+                ./mvnw dependency:tree
+                echo "***"
                 echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
                 if [[ $(gh pr list --state open --json number | jq length) -eq 0 ]]; then
                   echo "No open PRs found"
