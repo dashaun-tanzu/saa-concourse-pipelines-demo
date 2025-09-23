@@ -43,6 +43,24 @@ cat >> docker-compose.yml << 'EOF'
     ports:
       - "8081:8081"
     restart: unless-stopped
+  nexus-config:
+    image: curlimages/curl:latest
+    depends_on:
+      - nexus
+    command: >
+      sh -c "
+        echo 'Waiting for Nexus to start...'
+        while ! curl -f -s http://nexus:8081/service/rest/v1/status; do
+          sleep 10
+        done
+        echo 'Configuring anonymous access...'
+        curl -X PUT 'http://nexus:8081/service/rest/v1/security/anonymous' \
+          -H 'Content-Type: application/json' \
+          -u admin:admin123 \
+          -d '{\"enabled\":true,\"userId\":\"anonymous\",\"realmName\":\"NexusAuthorizingRealm\"}'
+        echo 'Configuration complete'
+      "
+    restart: "no"
 EOF
 
     docker compose down --remove-orphans
