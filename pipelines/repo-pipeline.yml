@@ -76,17 +76,12 @@ jobs:
                 source "$HOME/.sdkman/bin/sdkman-init.sh"
                 sdk use java 21.0.8-librca
                 
-                echo "***"
-                cat /root/.m2/settings.xml
-                echo "***"
-                ./mvnw dependency:tree
-                echo "***"
-                
                 advisor build-config get
                 
                 output=$(advisor upgrade-plan get)
                 if [[ $output == *"No upgrade plans available"* ]]; then
                   echo "No upgrades available, but maybe there is a patch version..."
+                  sdk env
                   ./mvnw org.openrewrite.maven:rewrite-maven-plugin:run -Drewrite.configLocation=https://raw.githubusercontent.com/dashaun-tanzu/openrewrite-recipes/refs/heads/main/MavenUpgradeSpringBootToLatestPatch.yaml -Drewrite.activeRecipes=com.dashaun.openrewrite.MavenUpgradeSpringBootToLatestPatch
                   
                   if ! git diff --quiet || ! git diff --cached --quiet; then
