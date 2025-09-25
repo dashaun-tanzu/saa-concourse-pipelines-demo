@@ -47,6 +47,12 @@ jobs:
             args:
               - -lc
               - |
+                if [[ -f "pom.xml" || -f "build.gradle" ]]; then
+                  echo "Found Maven or Gradle project"
+                else
+                  echo "No pom.xml or build.gradle file found."
+                  exit 0
+                fi
                 set -Eeo pipefail
                 echo "Install advisor and validate its working"
                 until curl -L -H "Authorization: Bearer $MAVEN_PASSWORD" \
