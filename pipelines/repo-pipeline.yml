@@ -81,7 +81,10 @@ jobs:
                 output=$(advisor upgrade-plan get)
                 if [[ $output == *"No upgrade plans available"* ]]; then
                   echo "No upgrades available, but maybe there is a patch version..."
-                  sdk env
+                  if [ -f "./sdkmanrc" ]; then
+                    sdk env install
+                    sdk env
+                  fi
                   ./mvnw org.openrewrite.maven:rewrite-maven-plugin:run -Drewrite.configLocation=https://raw.githubusercontent.com/dashaun-tanzu/openrewrite-recipes/refs/heads/main/MavenUpgradeSpringBootToLatestPatch.yaml -Drewrite.activeRecipes=com.dashaun.openrewrite.MavenUpgradeSpringBootToLatestPatch
                   
                   if ! git diff --quiet || ! git diff --cached --quiet; then
