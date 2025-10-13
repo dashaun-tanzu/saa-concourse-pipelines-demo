@@ -69,12 +69,12 @@ jobs:
                 OLDER_THAN_DAYS=30
 
                 # Get a list of open PRs with titles starting with "[Auto]"
-                gh pr list --state open --json number,title,created_at | jq -r '.[] | select(.title | startswith("[Auto]")) | .number' | while read -r pr_number; do
+                gh pr list --state open --json number,title,createdAt | jq -r '.[] | select(.title | startswith("[Auto]")) | .number' | while read -r pr_number; do
                   if [[ -z "$pr_number" ]]; then
                     continue # Skip if pr_number is empty
                   fi
                   
-                  created_at=$(gh pr view "$pr_number" --json created_at | jq -r '.created_at')
+                  created_at=$(gh pr view "$pr_number" --json createdAt | jq -r '.createdAt')
                   
                   if [[ -z "$created_at" ]]; then
                     echo "Error: Could not retrieve creation date for PR $pr_number" >&2
