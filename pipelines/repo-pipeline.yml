@@ -66,12 +66,39 @@ jobs:
                 sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
                 sed -i "s/MAVEN_PASSWORD/$MAVEN_PASSWORD/g" /root/.m2/settings.xml
                 echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
-                if [[ $(gh pr list --state open --json number | jq length) -eq 0 ]]; then
-                  echo "No open PRs found"
-                else
-                  echo "Open PRs found - task successful"
-                  exit 0
-                fi
+                OLDER_THAN_DAYS=30
+
+                # Get a list of open PRs with titles starting with "[Auto]"
+                gh pr list --state open --json number,title,created_at | jq -r '.[] | select(.title | startswith("[Auto]")) | .number' | while read -r pr_number; do
+                  if [[ -z "$pr_number" ]]; then
+                    continue # Skip if pr_number is empty
+                  fi
+                  
+                  created_at=$(gh pr view "$pr_number" --json created_at | jq -r '.created_at')
+                  
+                  if [[ -z "$created_at" ]]; then
+                    echo "Error: Could not retrieve creation date for PR $pr_number" >&2
+                    continue
+                  fi
+                  
+                  # Calculate the age in days
+                  creation_date=$(date -d "$created_at" +%s)
+                  current_date=$(date +%s)
+                  age_seconds=$((current_date - creation_date))
+                  age_days=$((age_seconds / (60 * 60 * 24)))
+                  
+                  # Check if the PR is older than the specified number of days
+                  if [[ "$age_days" -gt "$OLDER_THAN_DAYS" ]]; then
+                    echo "PR $pr_number is older than $OLDER_THAN_DAYS days. Deleting..."
+                    
+                    # Delete the PR.  Requires admin privileges.
+                    gh api --method DELETE /repos/$(gh repo view --json owner --jq .owner) /pulls/$pr_number
+                  
+                  else
+                    echo "PR $pr_number is not older than $OLDER_THAN_DAYS days. Skipping..."
+                    exit 0
+                  fi
+                done
                 
                 source "$HOME/.sdkman/bin/sdkman-init.sh"
                 sdk use java 21.0.8-librca
@@ -81,7 +108,7 @@ jobs:
                 output=$(advisor upgrade-plan get)
                 if [[ $output == *"No upgrade plans available"* ]]; then
                   echo "No upgrades available, but maybe there is a patch version..."
-                  if [ -f "./sdkmanrc" ]; then
+                  if [ -f "./.sdkmanrc" ]; then
                     sdk env install
                     sdk env
                   fi
