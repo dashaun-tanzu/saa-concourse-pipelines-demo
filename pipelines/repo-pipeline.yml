@@ -96,7 +96,7 @@ jobs:
                   
                   else
                     echo "PR $pr_number is not older than $OLDER_THAN_DAYS days. Skipping..."
-                    exit 1
+                    exit 0
                   fi
                 done
                 
