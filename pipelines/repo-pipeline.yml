@@ -90,14 +90,12 @@ jobs:
                   # Check if the PR is older than the specified number of days
                   if [[ "$age_days" -gt "$OLDER_THAN_DAYS" ]]; then
                     echo "PR $pr_number is older than $OLDER_THAN_DAYS days. Deleting..."
-                    
                     # Delete the PR.  Requires admin privileges.
                     gh api --method DELETE /repos/$(gh repo view --json owner --jq .owner) /pulls/$pr_number
-                  
                   else
                     echo "PR $pr_number is not older than $OLDER_THAN_DAYS days. Skipping..."
-                    exit 0
                   fi
+                  exit 0
                 done
                 
                 source "$HOME/.sdkman/bin/sdkman-init.sh"
