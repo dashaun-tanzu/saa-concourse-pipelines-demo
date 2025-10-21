@@ -66,7 +66,7 @@ jobs:
                 sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
                 sed -i "s/MAVEN_PASSWORD/$MAVEN_PASSWORD/g" /root/.m2/settings.xml
                 echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
-                OLDER_THAN_DAYS=1
+                OLDER_THAN_DAYS=30
 
                 # Flag to track if we should exit
                 SHOULD_EXIT=false
@@ -94,9 +94,7 @@ jobs:
                   if [[ "$age_days" -gt "$OLDER_THAN_DAYS" ]]; then
                     echo "PR $pr_number is older than $OLDER_THAN_DAYS days. Deleting..."
                     # Delete the PR.  Requires admin privileges.
-                    echo "owner :: $(gh repo view --json owner --jq .owner)"
-                    echo "pr_number :: $pr_number"
-                    gh api --method DELETE /repos/$(gh repo view --json owner --jq .owner) /pulls/$pr_number
+                    gh api --method DELETE "/repos/$REPO_FULL_NAME/pulls/$pr_number"
                     continue
                   else
                     echo "PR $pr_number is not older than $OLDER_THAN_DAYS days. Skipping..."
