@@ -66,7 +66,7 @@ jobs:
                 sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
                 sed -i "s/MAVEN_PASSWORD/$MAVEN_PASSWORD/g" /root/.m2/settings.xml
                 echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
-                OLDER_THAN_DAYS=30
+                OLDER_THAN_DAYS=1
 
                 # Flag to track if we should exit
                 SHOULD_EXIT=false
@@ -98,9 +98,9 @@ jobs:
                     continue
                   else
                     echo "PR $pr_number is not older than $OLDER_THAN_DAYS days. Skipping..."
+                    echo "SIGNAL_EXIT" > /tmp/exit_signal
+                    break
                   fi
-                  echo "SIGNAL_EXIT" > /tmp/exit_signal
-                  break
                 done
                 
                 # Check if we should exit
