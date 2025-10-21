@@ -92,6 +92,7 @@ jobs:
                     echo "PR $pr_number is older than $OLDER_THAN_DAYS days. Deleting..."
                     # Delete the PR.  Requires admin privileges.
                     gh api --method DELETE /repos/$(gh repo view --json owner --jq .owner) /pulls/$pr_number
+                    continue
                   else
                     echo "PR $pr_number is not older than $OLDER_THAN_DAYS days. Skipping..."
                   fi
@@ -117,7 +118,7 @@ jobs:
                     git config --global user.name "DaShaun"
                     echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
                     gh auth setup-git
-                    BRANCH_NAME="MavenUpgradeSpringBootToLatestPatch-$(date +%Y%m%d-%H%M%S)"          
+                    BRANCH_NAME="[Auto] MavenUpgradeSpringBootToLatestPatch-$(date +%Y%m%d-%H%M%S)"          
                     git checkout -b "$BRANCH_NAME"
                     git add .
                     DATE=$(date)
