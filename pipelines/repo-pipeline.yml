@@ -68,25 +68,28 @@ jobs:
                 echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
                 OLDER_THAN_DAYS=30
 
+                # Flag to track if we should exit
+                SHOULD_EXIT=false
+
                 # Get a list of open PRs with titles starting with "[Auto]"
                 gh pr list --state open --json number,title,createdAt | jq -r '.[] | select(.title | startswith("[Auto]")) | .number' | while read -r pr_number; do
                   if [[ -z "$pr_number" ]]; then
                     continue # Skip if pr_number is empty
                   fi
-                  
+                
                   created_at=$(gh pr view "$pr_number" --json createdAt | jq -r '.createdAt')
-                  
+                
                   if [[ -z "$created_at" ]]; then
                     echo "Error: Could not retrieve creation date for PR $pr_number" >&2
                     continue
                   fi
-                  
+                
                   # Calculate the age in days
                   creation_date=$(date -d "$created_at" +%s)
                   current_date=$(date +%s)
                   age_seconds=$((current_date - creation_date))
                   age_days=$((age_seconds / (60 * 60 * 24)))
-                  
+                
                   # Check if the PR is older than the specified number of days
                   if [[ "$age_days" -gt "$OLDER_THAN_DAYS" ]]; then
                     echo "PR $pr_number is older than $OLDER_THAN_DAYS days. Deleting..."
@@ -96,8 +99,15 @@ jobs:
                   else
                     echo "PR $pr_number is not older than $OLDER_THAN_DAYS days. Skipping..."
                   fi
-                  exit 0
+                  echo "SIGNAL_EXIT" > /tmp/exit_signal
+                  break
                 done
+                
+                # Check if we should exit
+                if [[ -f /tmp/exit_signal ]]; then
+                  echo "Exiting pipeline as requested"
+                  exit 0
+                fi
                 
                 source "$HOME/.sdkman/bin/sdkman-init.sh"
                 sdk use java 21.0.8-librca
@@ -112,7 +122,7 @@ jobs:
                     sdk env
                   fi
                   ./mvnw org.openrewrite.maven:rewrite-maven-plugin:run -Drewrite.configLocation=https://raw.githubusercontent.com/dashaun-tanzu/openrewrite-recipes/refs/heads/main/MavenUpgradeSpringBootToLatestPatch.yaml -Drewrite.activeRecipes=com.dashaun.openrewrite.MavenUpgradeSpringBootToLatestPatch
-                  
+                
                   if ! git diff --quiet || ! git diff --cached --quiet; then
                     git config --global user.email "$GIT_EMAIL"
                     git config --global user.name "DaShaun"
