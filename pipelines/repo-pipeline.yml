@@ -113,6 +113,7 @@ jobs:
             - name: repo
             - name: skip-signal
           params:
+            ADVISOR_VERSION: ((advisor_version))
             GIT_TOKEN_FOR_PRS: ((github_token))
             GIT_EMAIL: ((git_email))
             GIT_NAME: ((git_name))
@@ -121,7 +122,6 @@ jobs:
             MAVEN_USERNAME: ((maven_username))
             SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_URI: https://github.com/dashaun-tanzu/advisor-mappings.git
             SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_PATH: mappings/
-            ADVISOR_VERSION: 1.4.1
           run:
             path: bash
             args:

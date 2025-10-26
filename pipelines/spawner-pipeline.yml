@@ -147,6 +147,7 @@ jobs:
             file: templates/pipelines/repo-pipeline.yml
             team: ((.:repo.org_name))
             vars:
+              advisor_version: ((advisor_version))
               docker-hub-password: ((docker-hub-password))
               docker-hub-username: ((docker-hub-username))
               repo_full_name: ((.:repo.full_name))

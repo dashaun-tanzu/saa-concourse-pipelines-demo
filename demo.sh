@@ -91,6 +91,7 @@ install_fly() {
     ./fly -t advisor-demo set-pipeline --non-interactive \
             -p rewrite-spawner \
             -c ../pipelines/spawner-pipeline.yml \
+            -v advisor_version="$ADVISOR_VERSION" \
             -v github_token="$GIT_TOKEN_FOR_PRS" \
             -v github_orgs="$GITHUB_ORGS" \
             -v git_email="$GIT_EMAIL" \
