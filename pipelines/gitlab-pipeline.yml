@@ -60,7 +60,6 @@ jobs:
                 git checkout main
 
                 # Configure glab
-                export GITLAB_TOKEN="$GITLAB_TOKEN"
                 glab config set -g token "$GITLAB_TOKEN"
                 glab config set -g gitlab_host "$GITLAB_HOST"
 
