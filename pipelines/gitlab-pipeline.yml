@@ -61,7 +61,7 @@ jobs:
 
                 # Configure glab
                 export GITLAB_TOKEN="$GITLAB_TOKEN"
-                glab config set -h "$GITLAB_HOST" token "$GITLAB_TOKEN"
+                glab config set --host "$GITLAB_HOST" token "$GITLAB_TOKEN"
                 glab config set -g gitlab_host "$GITLAB_HOST"
 
                 echo "Checking for old [Auto] MRs to clean up..."
