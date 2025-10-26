@@ -182,7 +182,10 @@ jobs:
                 apply_patch_upgrade() {
                   echo "No major upgrades available, checking for patch versions..."
                 
+                  set +u  # Temporarily disable unbound variable check for SDKMAN
                   source "$HOME/.sdkman/bin/sdkman-init.sh"
+                  set -u  # Re-enable unbound variable check
+                
                   sdk use java 21.0.8-librca
                   sdk env install && sdk env
                 
@@ -247,7 +250,10 @@ jobs:
                 configure_maven
                 configure_git
                 
+                set +u  # Temporarily disable unbound variable check for SDKMAN
                 source "$HOME/.sdkman/bin/sdkman-init.sh"
+                set -u  # Re-enable unbound variable check
+                
                 sdk use java 21.0.8-librca
                 
                 advisor build-config get
