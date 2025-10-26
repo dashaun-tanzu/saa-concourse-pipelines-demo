@@ -67,7 +67,7 @@ jobs:
                 echo "Checking for old [Auto] MRs to clean up..."
 
                 # Get list of open MRs with [Auto] prefix
-                mr_list=$(glab mr list --search "[Auto]" --json | jq -c '.[]')
+                mr_list=$(glab mr list --search "[Auto]" --output json | jq -c '.[]')
 
                 if [[ -z "$mr_list" ]]; then
                   echo "No [Auto] MRs found. Will proceed with upgrade check."
