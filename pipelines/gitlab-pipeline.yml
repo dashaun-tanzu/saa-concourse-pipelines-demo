@@ -245,7 +245,8 @@ jobs:
                 apply_advisor_upgrade() {
                   echo "Applying advisor upgrade plan..."
 
-                  if ! advisor upgrade-plan apply --push; then
+                  # Apply changes locally without --push (GitLab not supported by advisor)
+                  if ! advisor upgrade-plan apply; then
                     echo "Advisor upgrade failed, checking error logs..."
                     for file in .advisor/errors/*; do
                       if [[ -f "$file" ]]; then
@@ -256,7 +257,38 @@ jobs:
                     return 1
                   fi
 
-                  echo "Advisor upgrade plan applied successfully!"
+                  # Check if there are changes to commit
+                  if git diff --quiet && git diff --cached --quiet; then
+                    echo "No changes to commit after advisor upgrade."
+                    return 1
+                  fi
+
+                  # Get Spring Boot version info for MR title
+                  local old_version=$(git show HEAD:pom.xml | grep -A1 "spring-boot-starter-parent" | grep "<version>" | head -1 | sed -n 's/.*<version>\(.*\)<\/version>.*/\1/p' || echo "unknown")
+                  local new_version=$(./mvnw help:evaluate -Dexpression=project.parent.version -q -DforceStdout 2>/dev/null || echo "unknown")
+
+                  local branch_name="advisor-upgrade-$(date +%Y%m%d-%H%M%S)"
+                  local mr_title="[Auto] Spring Boot Upgrade to ${new_version}"
+
+                  if [[ "$old_version" != "unknown" && "$new_version" != "unknown" ]]; then
+                    mr_title="[Auto] Spring Boot Upgrade ${old_version} → ${new_version}"
+                  fi
+
+                  # Create branch, commit, and push
+                  git checkout -b "$branch_name"
+                  git add .
+                  git commit -m "$mr_title - $(date)"
+                  git push -u origin "$branch_name"
+
+                  # Create merge request
+                  glab mr create \
+                    --title "$mr_title" \
+                    --description "Automated Spring Boot upgrade via Spring Application Advisor" \
+                    --source-branch "$branch_name" \
+                    --target-branch main \
+                    --yes
+
+                  echo "Merge request created: $mr_title"
                 }
 
                 # Main execution
