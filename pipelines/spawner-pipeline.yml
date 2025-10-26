@@ -190,7 +190,7 @@ jobs:
 
                 echo "$GITLAB_GROUPS_JSON" | jq -r '.[]' | while read -r GROUP; do
                   # URL encode the group name
-                  GROUP_ENCODED=$(echo "$GROUP" | jq -sRr @uri)
+                  GROUP_ENCODED=$(printf '%s' "$GROUP" | jq -sRr @uri)
                   gl_list "${GITLAB_API}/groups/${GROUP_ENCODED}/projects" | while read -r row; do
                     archived=$(echo "$row" | jq -r '.archived')
                     if [ "$archived" = "true" ]; then
