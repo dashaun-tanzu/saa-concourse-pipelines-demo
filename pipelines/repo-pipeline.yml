@@ -1,7 +1,9 @@
 resource_types:
   - name: time
     type: registry-image
-    source: { repository: concourse/time-resource }
+    source:
+      repository: concourse/time-resource
+
 resources:
   - name: ubuntu
     type: registry-image
@@ -9,10 +11,12 @@ resources:
       repository: ((docker-hub-username))/scpd-runner
       username: ((docker-hub-username))
       password: ((docker-hub-password))
+
   - name: periodic
     type: time
     source:
       interval: 12h
+
   - name: repo
     type: git
     source:
@@ -20,16 +24,19 @@ resources:
       branch: main
       username: x-access-token
       password: ((github_token))
+
 jobs:
   - name: detect-drift
     max_in_flight: 1
     serial: true
     plan:
-      - get: periodic
-        trigger: true
-      - get: repo
-      - get: ubuntu
-      - task: recipe-runner
+      - in_parallel:
+          - get: periodic
+            trigger: true
+          - get: repo
+          - get: ubuntu
+
+      - task: cleanup-old-prs
         image: ubuntu
         config:
           platform: linux
@@ -38,112 +45,195 @@ jobs:
           params:
             GIT_TOKEN_FOR_PRS: ((github_token))
             REPO_FULL_NAME: ((repo_full_name))
+            OLDER_THAN_DAYS: 30
+          run:
+            path: bash
+            args:
+              - -c
+              - |
+                set -euo pipefail
+                
+                cd repo
+                git checkout main
+                echo "$GIT_TOKEN_FOR_PRS" | gh auth login --with-token
+                
+                echo "Checking for old [Auto] PRs to clean up..."
+                
+                # Get list of open PRs with [Auto] prefix
+                pr_list=$(gh pr list --state open --json number,title,createdAt --jq '.[] | select(.title | startswith("[Auto]"))')
+                
+                if [[ -z "$pr_list" ]]; then
+                  echo "No [Auto] PRs found."
+                  exit 0
+                fi
+                
+                echo "$pr_list" | jq -c '.' | while read -r pr; do
+                  pr_number=$(echo "$pr" | jq -r '.number')
+                  created_at=$(echo "$pr" | jq -r '.createdAt')
+                
+                  # Calculate age in days
+                  creation_date=$(date -d "$created_at" +%s)
+                  current_date=$(date +%s)
+                  age_days=$(( (current_date - creation_date) / 86400 ))
+                
+                  if [[ "$age_days" -gt "$OLDER_THAN_DAYS" ]]; then
+                    echo "Closing PR #$pr_number (age: $age_days days)"
+                    gh pr close "$pr_number" --delete-branch
+                  else
+                    echo "PR #$pr_number is only $age_days days old, keeping it"
+                    # Exit early if we find a recent PR
+                    touch /tmp/recent_pr_exists
+                  fi
+                done
+                
+                # Signal to skip upgrade if recent PR exists
+                if [[ -f /tmp/recent_pr_exists ]]; then
+                  echo "Recent [Auto] PR exists, skipping upgrade check"
+                  exit 1
+                fi
+
+      - task: check-and-upgrade
+        image: ubuntu
+        config:
+          platform: linux
+          inputs:
+            - name: repo
+          params:
+            GIT_TOKEN_FOR_PRS: ((github_token))
+            GIT_EMAIL: ((git_email))
+            REPO_FULL_NAME: ((repo_full_name))
             MAVEN_PASSWORD: ((maven_password))
             MAVEN_USERNAME: ((maven_username))
             SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_URI: https://github.com/dashaun-tanzu/advisor-mappings.git
             SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_PATH: mappings/
+            ADVISOR_VERSION: 1.4.1
           run:
             path: bash
             args:
-              - -lc
+              - -c
               - |
-                set -Eeo pipefail
-                echo "Install advisor and validate its working"
-                until curl -L -H "Authorization: Bearer $MAVEN_PASSWORD" \
-                  -o advisor-cli.tar \
-                  -X GET https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/1.4.1/application-advisor-cli-linux-1.4.1.tar; do
-                  echo "Retrying..."
-                  sleep 1
-                done
-                tar -xf advisor-cli.tar
-                chmod +x cli-binary/advisor
-                cli-binary/advisor -v
-                install cli-binary/advisor /usr/local/bin
-                advisor -v
+                set -euo pipefail
                 
-                cd repo
-                git checkout main
-                sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
-                sed -i "s/MAVEN_PASSWORD/$MAVEN_PASSWORD/g" /root/.m2/settings.xml
-                echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
-                OLDER_THAN_DAYS=30
-
-                # Flag to track if we should exit
-                SHOULD_EXIT=false
-
-                # Get a list of open PRs with titles starting with "[Auto]"
-                gh pr list --state open --json number,title,createdAt | jq -r '.[] | select(.title | startswith("[Auto]")) | .number' | while read -r pr_number; do
-                  if [[ -z "$pr_number" ]]; then
-                    continue # Skip if pr_number is empty
+                # Helper functions
+                install_advisor() {
+                  echo "Installing Spring Application Advisor v${ADVISOR_VERSION}..."
+                
+                  local max_retries=5
+                  local retry_count=0
+                
+                  while [[ $retry_count -lt $max_retries ]]; do
+                    if curl -fsSL -H "Authorization: Bearer $MAVEN_PASSWORD" \
+                      -o advisor-cli.tar \
+                      "https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/${ADVISOR_VERSION}/application-advisor-cli-linux-${ADVISOR_VERSION}.tar"; then
+                      break
+                    fi
+                
+                    retry_count=$((retry_count + 1))
+                    echo "Download failed, retrying ($retry_count/$max_retries)..."
+                    sleep 2
+                  done
+                
+                  tar -xf advisor-cli.tar
+                  chmod +x cli-binary/advisor
+                  install cli-binary/advisor /usr/local/bin
+                  advisor -v
+                }
+                
+                configure_maven() {
+                  echo "Configuring Maven credentials..."
+                  sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
+                  sed -i "s/MAVEN_PASSWORD/$MAVEN_PASSWORD/g" /root/.m2/settings.xml
+                }
+                
+                configure_git() {
+                  echo "Configuring Git..."
+                  cd repo
+                  git checkout main
+                  git config --global user.email "$GIT_EMAIL"
+                  git config --global user.name "DaShaun"
+                  echo "$GIT_TOKEN_FOR_PRS" | gh auth login --with-token
+                  gh auth setup-git
+                  gh repo set-default "$REPO_FULL_NAME"
+                }
+                
+                apply_patch_upgrade() {
+                  echo "No major upgrades available, checking for patch versions..."
+                
+                  source "$HOME/.sdkman/bin/sdkman-init.sh"
+                  sdk use java 21.0.8-librca
+                  sdk env install && sdk env
+                
+                  # Get current Spring Boot version before upgrade
+                  local old_version=$(./mvnw help:evaluate -Dexpression=project.parent.version -q -DforceStdout 2>/dev/null || echo "unknown")
+                
+                  ./mvnw org.openrewrite.maven:rewrite-maven-plugin:run \
+                    -Drewrite.configLocation=https://raw.githubusercontent.com/dashaun-tanzu/openrewrite-recipes/refs/heads/main/MavenUpgradeSpringBootToLatestPatch.yaml \
+                    -Drewrite.activeRecipes=com.dashaun.openrewrite.MavenUpgradeSpringBootToLatestPatch
+                
+                  if git diff --quiet && git diff --cached --quiet; then
+                    echo "No patch changes to commit."
+                    return 1
                   fi
                 
-                  created_at=$(gh pr view "$pr_number" --json createdAt | jq -r '.createdAt')
+                  # Extract new Spring Boot version from pom.xml changes
+                  local new_version=$(./mvnw help:evaluate -Dexpression=project.parent.version -q -DforceStdout 2>/dev/null || \
+                    git diff pom.xml | grep -A1 "spring-boot-starter-parent" | grep "<version>" | head -1 | sed -n 's/.*<version>\(.*\)<\/version>.*/\1/p' | tr -d '+' || \
+                    echo "unknown")
                 
-                  if [[ -z "$created_at" ]]; then
-                    echo "Error: Could not retrieve creation date for PR $pr_number" >&2
-                    continue
+                  local branch_name="patch-upgrade-$(date +%Y%m%d-%H%M%S)"
+                  local pr_title="[Auto] Spring Boot Patch Upgrade to ${new_version}"
+                
+                  if [[ "$old_version" != "unknown" && "$new_version" != "unknown" ]]; then
+                    pr_title="[Auto] Spring Boot Upgrade ${old_version} → ${new_version}"
                   fi
                 
-                  # Calculate the age in days
-                  creation_date=$(date -d "$created_at" +%s)
-                  current_date=$(date +%s)
-                  age_seconds=$((current_date - creation_date))
-                  age_days=$((age_seconds / (60 * 60 * 24)))
+                  git checkout -b "$branch_name"
+                  git add .
+                  git commit -m "$pr_title - $(date)"
+                  git push -u origin "$branch_name"
                 
-                  # Check if the PR is older than the specified number of days
-                  if [[ "$age_days" -gt "$OLDER_THAN_DAYS" ]]; then
-                    echo "PR $pr_number is older than $OLDER_THAN_DAYS days. Deleting..."
-                    # Delete the PR.  Requires admin privileges.
-                    gh api --method DELETE "/repos/$REPO_FULL_NAME/pulls/$pr_number"
-                    continue
-                  else
-                    echo "PR $pr_number is not older than $OLDER_THAN_DAYS days. Skipping..."
-                    echo "SIGNAL_EXIT" > /tmp/exit_signal
-                    break
+                  gh pr create \
+                    --repo "$REPO_FULL_NAME" \
+                    --fill \
+                    --base main \
+                    --head "$branch_name" \
+                    --title "$pr_title"
+                
+                  echo "Pull request created: $pr_title"
+                }
+                
+                apply_advisor_upgrade() {
+                  echo "Applying advisor upgrade plan..."
+                
+                  if ! advisor upgrade-plan apply --push; then
+                    echo "Advisor upgrade failed, checking error logs..."
+                    for file in .advisor/errors/*; do
+                      if [[ -f "$file" ]]; then
+                        echo "=== $file ==="
+                        cat "$file"
+                      fi
+                    done
+                    return 1
                   fi
-                done
                 
-                # Check if we should exit
-                if [[ -f /tmp/exit_signal ]]; then
-                  echo "Exiting pipeline as requested"
-                  exit 0
-                fi
+                  echo "Advisor upgrade plan applied successfully!"
+                }
+                
+                # Main execution
+                install_advisor
+                configure_maven
+                configure_git
                 
                 source "$HOME/.sdkman/bin/sdkman-init.sh"
                 sdk use java 21.0.8-librca
                 
                 advisor build-config get
                 
-                output=$(advisor upgrade-plan get)
-                if [[ $output == *"No upgrade plans available"* ]]; then
-                  echo "No upgrades available, but maybe there is a patch version..."
-                  sdk env install && sdk env
-                  ./mvnw org.openrewrite.maven:rewrite-maven-plugin:run -Drewrite.configLocation=https://raw.githubusercontent.com/dashaun-tanzu/openrewrite-recipes/refs/heads/main/MavenUpgradeSpringBootToLatestPatch.yaml -Drewrite.activeRecipes=com.dashaun.openrewrite.MavenUpgradeSpringBootToLatestPatch
+                upgrade_output=$(advisor upgrade-plan get)
+                echo "$upgrade_output"
                 
-                  if ! git diff --quiet || ! git diff --cached --quiet; then
-                    git config --global user.email "$GIT_EMAIL"
-                    git config --global user.name "DaShaun"
-                    echo $GIT_TOKEN_FOR_PRS | gh auth login --with-token
-                    gh auth setup-git
-                    BRANCH_NAME="MavenUpgradeSpringBootToLatestPatch-$(date +%Y%m%d-%H%M%S)"          
-                    git checkout -b "$BRANCH_NAME"
-                    git add .
-                    DATE=$(date)
-                    git commit -m "$BRANCH_NAME"
-                    git push -u origin "$BRANCH_NAME"
-                    gh repo set-default $REPO_FULL_NAME
-                    gh pr create --repo $REPO_FULL_NAME --fill --base main --head "$BRANCH_NAME" --title "[Auto] $MavenUpgradeSpringBootToLatestPatch"
-                    echo "Pull request created!"
-                  else
-                    echo "No changes to commit."
-                  fi
+                if [[ $upgrade_output == *"No upgrade plans available"* ]]; then
+                  apply_patch_upgrade || echo "No patch upgrades available"
                 else
-                  set +e
-                  advisor upgrade-plan apply --push || {
-                    for file in .advisor/errors/*; do
-                      echo "$file"
-                      cat "$file"
-                    done
-                  }
-                  set -e
+                  apply_advisor_upgrade || echo "Advisor upgrade completed with warnings"
                 fi
