@@ -61,7 +61,6 @@ jobs:
 
                 # Configure glab
                 glab config set -g token "$GITLAB_TOKEN"
-                glab config set -g gitlab_host "$GITLAB_HOST"
 
                 echo "Checking for old [Auto] MRs to clean up..."
 
@@ -187,9 +186,7 @@ jobs:
                   git config --global user.name "$GIT_NAME"
 
                   # Configure glab
-                  export GITLAB_TOKEN="$GITLAB_TOKEN"
-                  glab config set -h "$GITLAB_HOST" token "$GITLAB_TOKEN"
-                  glab config set -g gitlab_host "$GITLAB_HOST"
+                  glab config set -g token "$GITLAB_TOKEN"
 
                   # Configure git to use token for push
                   git remote set-url origin "https://oauth2:${GITLAB_TOKEN}@${GITLAB_HOST#https://}/${REPO_FULL_NAME}.git"
