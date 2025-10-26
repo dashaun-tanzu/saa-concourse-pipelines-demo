@@ -42,6 +42,8 @@ jobs:
           platform: linux
           inputs:
             - name: repo
+          outputs:
+            - name: skip-signal
           params:
             GIT_TOKEN_FOR_PRS: ((github_token))
             REPO_FULL_NAME: ((repo_full_name))
@@ -63,9 +65,12 @@ jobs:
                 pr_list=$(gh pr list --state open --json number,title,createdAt --jq '.[] | select(.title | startswith("[Auto]"))')
                 
                 if [[ -z "$pr_list" ]]; then
-                  echo "No [Auto] PRs found."
+                  echo "No [Auto] PRs found. Will proceed with upgrade check."
+                  echo "false" > ../skip-signal/should_skip
                   exit 0
                 fi
+                
+                recent_pr_found=false
                 
                 echo "$pr_list" | jq -c '.' | while read -r pr; do
                   pr_number=$(echo "$pr" | jq -r '.number')
@@ -81,16 +86,24 @@ jobs:
                     gh pr close "$pr_number" --delete-branch
                   else
                     echo "PR #$pr_number is only $age_days days old, keeping it"
-                    # Exit early if we find a recent PR
-                    touch /tmp/recent_pr_exists
+                    echo "true" > ../skip-signal/should_skip
+                    recent_pr_found=true
                   fi
                 done
                 
-                # Signal to skip upgrade if recent PR exists
-                if [[ -f /tmp/recent_pr_exists ]]; then
-                  echo "Recent [Auto] PR exists, skipping upgrade check"
-                  exit 1
+                # Set default if no signal file was created
+                if [[ ! -f ../skip-signal/should_skip ]]; then
+                  echo "false" > ../skip-signal/should_skip
                 fi
+                
+                # Show status but always exit successfully (GREEN)
+                if [[ "$(cat ../skip-signal/should_skip)" == "true" ]]; then
+                  echo "✓ Recent [Auto] PR exists - upgrade check will be skipped"
+                else
+                  echo "✓ No recent [Auto] PRs - upgrade check will proceed"
+                fi
+                
+                exit 0
 
       - task: check-and-upgrade
         image: ubuntu
@@ -98,6 +111,7 @@ jobs:
           platform: linux
           inputs:
             - name: repo
+            - name: skip-signal
           params:
             GIT_TOKEN_FOR_PRS: ((github_token))
             GIT_EMAIL: ((git_email))
@@ -114,6 +128,14 @@ jobs:
               - -c
               - |
                 set -euo pipefail
+                
+                # Check if we should skip the upgrade
+                if [[ -f skip-signal/should_skip ]] && [[ "$(cat skip-signal/should_skip)" == "true" ]]; then
+                  echo "Skipping upgrade check - recent PR already exists"
+                  exit 0
+                fi
+                
+                echo "Proceeding with upgrade check..."
                 
                 # Helper functions
                 install_advisor() {
