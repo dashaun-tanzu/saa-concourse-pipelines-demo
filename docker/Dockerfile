@@ -5,7 +5,7 @@ SHELL ["/bin/bash", "-c"]
 RUN apt-get update && apt-get install -y curl tar zip unzip jq git gh && mkdir -p /root/.m2
 
 # Install GitLab CLI (glab)
-RUN curl -fsSL https://gitlab.com/gitlab-org/cli/-/releases/v1.47.0/downloads/glab_1.47.0_Linux_x86_64.tar.gz | tar -xz -C /usr/local/bin glab
+RUN curl -fsSL https://gitlab.com/gitlab-org/cli/-/releases/v1.74.0/downloads/glab_1.74.0_linux_amd64.tar.gz | tar -xz -C /usr/local/bin bin/glab
 
 # Install SDKMAN!
 RUN curl -s "https://get.sdkman.io?ci=true" | bash
