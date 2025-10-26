@@ -37,7 +37,7 @@ jobs:
         config:
           platform: linux
           outputs:
-            - name: repos
+            - name: github-repos
           params:
             GITHUB_TOKEN: ((github_token))
             GITHUB_ORGS_JSON: ((github_orgs))
@@ -92,11 +92,11 @@ jobs:
                     fi
                     full_name=$(echo "$row" | jq -r '.full_name')
                     clone_url=$(echo "$row" | jq -r '.clone_url')
-                
+
                     # Extract organization and repository names
                     org_name=$(echo "$full_name" | cut -d'/' -f1)
                     repo_name=$(echo "$full_name" | cut -d'/' -f2)
-                
+
                     # Check if repo has pom.xml or build.gradle in root
                     echo "Checking $full_name for build files..."
                     if file_exists "$org_name" "$repo_name" "pom.xml" || \
@@ -105,7 +105,7 @@ jobs:
                       safe_name=$(echo "$full_name" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
                       org_name_lower=$(echo "$org_name" | tr '[:upper:]' '[:lower:]')
                       repo_name_lower=$(echo "$repo_name" | tr '[:upper:]' '[:lower:]')
-                
+
                       jq -n --arg full "$full_name" \
                             --arg clone "$clone_url" \
                             --arg safe "$safe_name" \
@@ -127,24 +127,136 @@ jobs:
                   echo "[]" > /tmp/list.json
                 fi
 
-                # repos/repos.yml will be a YAML array of objects:
+                # github-repos/repos.yml will be a YAML array of objects:
                 # - full_name: org/repo
                 #   clone_url: https://github.com/org/repo.git
                 #   safe_name: org-repo
                 #   org_name: org
                 #   repo_name: repo
-                yq -P '.' /tmp/list.json > repos/repos.yml
-                echo "Wrote $(wc -l < repos/repos.yml) lines to repos/repos.yml"
-                echo "Filtered repositories:"
-                cat repos/repos.yml
-      - load_var: repos
-        file: repos/repos.yml
+                yq -P '.' /tmp/list.json > github-repos/repos.yml
+                echo "Wrote $(wc -l < github-repos/repos.yml) lines to github-repos/repos.yml"
+                echo "GitHub repositories:"
+                cat github-repos/repos.yml
+
+      - task: crawl-gitlab
+        image: alpine
+        timeout: 15m
+        config:
+          platform: linux
+          outputs:
+            - name: gitlab-repos
+          params:
+            GITLAB_TOKEN: ((gitlab_token))
+            GITLAB_GROUPS_JSON: ((gitlab_groups))
+            GITLAB_HOST: ((gitlab_host))
+          run:
+            path: sh
+            args:
+              - -exc
+              - |
+                apk add --no-cache curl jq yq
+
+                GITLAB_HOST="${GITLAB_HOST:-https://gitlab.com}"
+                GITLAB_API="${GITLAB_HOST}/api/v4"
+
+                # helper to page GitLab API and stream items
+                gl_list() {
+                  url="$1"
+                  page=1
+                  while : ; do
+                    data="$(curl -fsSL \
+                      -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+                      "${url}?per_page=100&page=${page}")"
+                    [ -z "$data" ] || [ "$data" = "[]" ] && break
+                    echo "$data" | jq -c '.[]'
+                    [ "$(echo "$data" | jq 'length')" -lt 100 ] && break
+                    page=$((page+1))
+                  done
+                }
+
+                # helper to check if a file exists in a project
+                file_exists() {
+                  project_id="$1"
+                  filepath="$2"
+                  http_code=$(curl -o /dev/null -w "%{http_code}" -fsSL \
+                    -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+                    "${GITLAB_API}/projects/${project_id}/repository/files/${filepath}?ref=main")
+                  [ "$http_code" = "200" ]
+                }
+
+                # Build a YAML array of projects we want pipelines for
+                tmp_json="$(mktemp)"
+                : > "$tmp_json"
+
+                echo "$GITLAB_GROUPS_JSON" | jq -r '.[]' | while read -r GROUP; do
+                  # URL encode the group name
+                  GROUP_ENCODED=$(echo "$GROUP" | jq -sRr @uri)
+                  gl_list "${GITLAB_API}/groups/${GROUP_ENCODED}/projects" | while read -r row; do
+                    archived=$(echo "$row" | jq -r '.archived')
+                    if [ "$archived" = "true" ]; then
+                      continue
+                    fi
+
+                    project_id=$(echo "$row" | jq -r '.id')
+                    full_name=$(echo "$row" | jq -r '.path_with_namespace')
+                    http_url=$(echo "$row" | jq -r '.http_url_to_repo')
+
+                    # Extract group and project names
+                    group_name=$(echo "$full_name" | cut -d'/' -f1)
+                    project_name=$(echo "$full_name" | cut -d'/' -f2)
+
+                    # Check if project has pom.xml or build.gradle in root
+                    echo "Checking $full_name for build files..."
+                    if file_exists "$project_id" "pom.xml" || \
+                       file_exists "$project_id" "build.gradle"; then
+                      echo "  ✓ Found build file in $full_name"
+                      safe_name=$(echo "$full_name" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+                      group_name_lower=$(echo "$group_name" | tr '[:upper:]' '[:lower:]')
+                      project_name_lower=$(echo "$project_name" | tr '[:upper:]' '[:lower:]')
+
+                      jq -n --arg full "$full_name" \
+                            --arg clone "$http_url" \
+                            --arg safe "$safe_name" \
+                            --arg group "$group_name_lower" \
+                            --arg project "$project_name_lower" \
+                            '{full_name:$full, clone_url:$clone, safe_name:$safe, group_name:$group, project_name:$project}' >> "$tmp_json"
+                    else
+                      echo "  ✗ No build file found in $full_name, skipping"
+                    fi
+                  done
+                done
+
+                # Convert NDJSON to YAML list
+                if [ -s "$tmp_json" ]; then
+                  echo "[" > /tmp/list.json
+                  paste -sd, "$tmp_json" >> /tmp/list.json
+                  echo "]" >> /tmp/list.json
+                else
+                  echo "[]" > /tmp/list.json
+                fi
+
+                # gitlab-repos/repos.yml will be a YAML array of objects:
+                # - full_name: group/project
+                #   clone_url: https://gitlab.com/group/project.git
+                #   safe_name: group-project
+                #   group_name: group
+                #   project_name: project
+                yq -P '.' /tmp/list.json > gitlab-repos/repos.yml
+                echo "Wrote $(wc -l < gitlab-repos/repos.yml) lines to gitlab-repos/repos.yml"
+                echo "GitLab projects:"
+                cat gitlab-repos/repos.yml
+
+      - load_var: github_repos
+        file: github-repos/repos.yml
+      - load_var: gitlab_repos
+        file: gitlab-repos/repos.yml
+
       - across:
           - var: repo
-            values: ((.:repos))
+            values: ((.:github_repos))
         do:
           - set_pipeline: ((.:repo.repo_name))
-            file: templates/pipelines/repo-pipeline.yml
+            file: templates/pipelines/github-pipeline.yml
             team: ((.:repo.org_name))
             vars:
               advisor_version: ((advisor_version))
@@ -153,6 +265,26 @@ jobs:
               repo_full_name: ((.:repo.full_name))
               repo_clone_url: ((.:repo.clone_url))
               github_token: ((github_token))
+              git_email: ((git_email))
+              git_name: ((git_name))
+              maven_password: ((maven_password))
+              maven_username: ((maven_username))
+
+      - across:
+          - var: project
+            values: ((.:gitlab_repos))
+        do:
+          - set_pipeline: ((.:project.project_name))
+            file: templates/pipelines/gitlab-pipeline.yml
+            team: ((.:project.group_name))
+            vars:
+              advisor_version: ((advisor_version))
+              docker-hub-password: ((docker-hub-password))
+              docker-hub-username: ((docker-hub-username))
+              repo_full_name: ((.:project.full_name))
+              repo_clone_url: ((.:project.clone_url))
+              gitlab_token: ((gitlab_token))
+              gitlab_host: ((gitlab_host))
               git_email: ((git_email))
               git_name: ((git_name))
               maven_password: ((maven_password))

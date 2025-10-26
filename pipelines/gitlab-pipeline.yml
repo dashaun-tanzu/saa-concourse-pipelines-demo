@@ -1,0 +1,285 @@
+resource_types:
+  - name: time
+    type: registry-image
+    source:
+      repository: concourse/time-resource
+
+resources:
+  - name: ubuntu
+    type: registry-image
+    source:
+      repository: ((docker-hub-username))/scpd-runner
+      username: ((docker-hub-username))
+      password: ((docker-hub-password))
+
+  - name: periodic
+    type: time
+    source:
+      interval: 12h
+
+  - name: repo
+    type: git
+    source:
+      uri: ((repo_clone_url))
+      branch: main
+      username: oauth2
+      password: ((gitlab_token))
+
+jobs:
+  - name: detect-drift
+    max_in_flight: 1
+    serial: true
+    plan:
+      - in_parallel:
+          - get: periodic
+            trigger: true
+          - get: repo
+          - get: ubuntu
+
+      - task: cleanup-old-mrs
+        image: ubuntu
+        config:
+          platform: linux
+          inputs:
+            - name: repo
+          outputs:
+            - name: skip-signal
+          params:
+            GITLAB_TOKEN: ((gitlab_token))
+            REPO_FULL_NAME: ((repo_full_name))
+            OLDER_THAN_DAYS: 30
+            GITLAB_HOST: ((gitlab_host))
+          run:
+            path: bash
+            args:
+              - -c
+              - |
+                set -euo pipefail
+
+                cd repo
+                git checkout main
+
+                # Configure glab
+                export GITLAB_TOKEN="$GITLAB_TOKEN"
+                glab config set -h "$GITLAB_HOST" token "$GITLAB_TOKEN"
+                glab config set -g gitlab_host "$GITLAB_HOST"
+
+                echo "Checking for old [Auto] MRs to clean up..."
+
+                # Get list of open MRs with [Auto] prefix
+                mr_list=$(glab mr list --state opened --search "[Auto]" --json | jq -c '.[]')
+
+                if [[ -z "$mr_list" ]]; then
+                  echo "No [Auto] MRs found. Will proceed with upgrade check."
+                  echo "false" > ../skip-signal/should_skip
+                  exit 0
+                fi
+
+                recent_mr_found=false
+
+                echo "$mr_list" | while read -r mr; do
+                  mr_iid=$(echo "$mr" | jq -r '.iid')
+                  title=$(echo "$mr" | jq -r '.title')
+                  created_at=$(echo "$mr" | jq -r '.created_at')
+
+                  # Calculate age in days
+                  creation_date=$(date -d "$created_at" +%s)
+                  current_date=$(date +%s)
+                  age_days=$(( (current_date - creation_date) / 86400 ))
+
+                  if [[ "$age_days" -gt "$OLDER_THAN_DAYS" ]]; then
+                    echo "Closing MR !$mr_iid (age: $age_days days)"
+                    glab mr close "$mr_iid"
+                    # Get source branch and delete it
+                    source_branch=$(echo "$mr" | jq -r '.source_branch')
+                    if [[ -n "$source_branch" && "$source_branch" != "main" ]]; then
+                      git push origin --delete "$source_branch" || echo "Branch already deleted"
+                    fi
+                  else
+                    echo "MR !$mr_iid is only $age_days days old, keeping it"
+                    echo "true" > ../skip-signal/should_skip
+                    recent_mr_found=true
+                  fi
+                done
+
+                # Set default if no signal file was created
+                if [[ ! -f ../skip-signal/should_skip ]]; then
+                  echo "false" > ../skip-signal/should_skip
+                fi
+
+                # Show status but always exit successfully (GREEN)
+                if [[ "$(cat ../skip-signal/should_skip)" == "true" ]]; then
+                  echo "✓ Recent [Auto] MR exists - upgrade check will be skipped"
+                else
+                  echo "✓ No recent [Auto] MRs - upgrade check will proceed"
+                fi
+
+                exit 0
+
+      - task: check-and-upgrade
+        image: ubuntu
+        config:
+          platform: linux
+          inputs:
+            - name: repo
+            - name: skip-signal
+          params:
+            ADVISOR_VERSION: ((advisor_version))
+            GITLAB_TOKEN: ((gitlab_token))
+            GIT_EMAIL: ((git_email))
+            GIT_NAME: ((git_name))
+            REPO_FULL_NAME: ((repo_full_name))
+            MAVEN_PASSWORD: ((maven_password))
+            MAVEN_USERNAME: ((maven_username))
+            GITLAB_HOST: ((gitlab_host))
+            SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_URI: https://github.com/dashaun-tanzu/advisor-mappings.git
+            SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_PATH: mappings/
+          run:
+            path: bash
+            args:
+              - -c
+              - |
+                set -euo pipefail
+
+                # Check if we should skip the upgrade
+                if [[ -f skip-signal/should_skip ]] && [[ "$(cat skip-signal/should_skip)" == "true" ]]; then
+                  echo "Skipping upgrade check - recent MR already exists"
+                  exit 0
+                fi
+
+                echo "Proceeding with upgrade check..."
+
+                # Helper functions
+                install_advisor() {
+                  echo "Installing Spring Application Advisor v${ADVISOR_VERSION}..."
+
+                  local max_retries=5
+                  local retry_count=0
+
+                  while [[ $retry_count -lt $max_retries ]]; do
+                    if curl -fsSL -H "Authorization: Bearer $MAVEN_PASSWORD" \
+                      -o advisor-cli.tar \
+                      "https://packages.broadcom.com/artifactory/spring-enterprise/com/vmware/tanzu/spring/application-advisor-cli-linux/${ADVISOR_VERSION}/application-advisor-cli-linux-${ADVISOR_VERSION}.tar"; then
+                      break
+                    fi
+
+                    retry_count=$((retry_count + 1))
+                    echo "Download failed, retrying ($retry_count/$max_retries)..."
+                    sleep 2
+                  done
+
+                  tar -xf advisor-cli.tar
+                  chmod +x cli-binary/advisor
+                  install cli-binary/advisor /usr/local/bin
+                  advisor -v
+                }
+
+                configure_maven() {
+                  echo "Configuring Maven credentials..."
+                  sed -i "s/MAVEN_USERNAME/$MAVEN_USERNAME/g" /root/.m2/settings.xml
+                  sed -i "s/MAVEN_PASSWORD/$MAVEN_PASSWORD/g" /root/.m2/settings.xml
+                }
+
+                configure_git() {
+                  echo "Configuring Git for GitLab..."
+                  cd repo
+                  git checkout main
+                  git config --global user.email "$GIT_EMAIL"
+                  git config --global user.name "$GIT_NAME"
+
+                  # Configure glab
+                  export GITLAB_TOKEN="$GITLAB_TOKEN"
+                  glab config set -h "$GITLAB_HOST" token "$GITLAB_TOKEN"
+                  glab config set -g gitlab_host "$GITLAB_HOST"
+
+                  # Configure git to use token for push
+                  git remote set-url origin "https://oauth2:${GITLAB_TOKEN}@${GITLAB_HOST#https://}/${REPO_FULL_NAME}.git"
+                }
+
+                apply_patch_upgrade() {
+                  echo "No major upgrades available, checking for patch versions..."
+
+                  set +u  # Temporarily disable unbound variable check for SDKMAN
+                  source "$HOME/.sdkman/bin/sdkman-init.sh"
+                  set -u  # Re-enable unbound variable check
+
+                  sdk use java 21.0.8-librca
+                  sdk env install && sdk env
+
+                  # Get current Spring Boot version before upgrade
+                  local old_version=$(./mvnw help:evaluate -Dexpression=project.parent.version -q -DforceStdout 2>/dev/null || echo "unknown")
+
+                  ./mvnw org.openrewrite.maven:rewrite-maven-plugin:run \
+                    -Drewrite.configLocation=https://raw.githubusercontent.com/dashaun-tanzu/openrewrite-recipes/refs/heads/main/MavenUpgradeSpringBootToLatestPatch.yaml \
+                    -Drewrite.activeRecipes=com.dashaun.openrewrite.MavenUpgradeSpringBootToLatestPatch
+
+                  if git diff --quiet && git diff --cached --quiet; then
+                    echo "No patch changes to commit."
+                    return 1
+                  fi
+
+                  # Extract new Spring Boot version from pom.xml changes
+                  local new_version=$(./mvnw help:evaluate -Dexpression=project.parent.version -q -DforceStdout 2>/dev/null || \
+                    git diff pom.xml | grep -A1 "spring-boot-starter-parent" | grep "<version>" | head -1 | sed -n 's/.*<version>\(.*\)<\/version>.*/\1/p' | tr -d '+' || \
+                    echo "unknown")
+
+                  local branch_name="patch-upgrade-$(date +%Y%m%d-%H%M%S)"
+                  local mr_title="[Auto] Spring Boot Patch Upgrade to ${new_version}"
+
+                  if [[ "$old_version" != "unknown" && "$new_version" != "unknown" ]]; then
+                    mr_title="[Auto] Spring Boot Upgrade ${old_version} → ${new_version}"
+                  fi
+
+                  git checkout -b "$branch_name"
+                  git add .
+                  git commit -m "$mr_title - $(date)"
+                  git push -u origin "$branch_name"
+
+                  glab mr create \
+                    --title "$mr_title" \
+                    --description "Automated Spring Boot upgrade" \
+                    --source-branch "$branch_name" \
+                    --target-branch main \
+                    --yes
+
+                  echo "Merge request created: $mr_title"
+                }
+
+                apply_advisor_upgrade() {
+                  echo "Applying advisor upgrade plan..."
+
+                  if ! advisor upgrade-plan apply --push; then
+                    echo "Advisor upgrade failed, checking error logs..."
+                    for file in .advisor/errors/*; do
+                      if [[ -f "$file" ]]; then
+                        echo "=== $file ==="
+                        cat "$file"
+                      fi
+                    done
+                    return 1
+                  fi
+
+                  echo "Advisor upgrade plan applied successfully!"
+                }
+
+                # Main execution
+                install_advisor
+                configure_maven
+                configure_git
+
+                set +u  # Temporarily disable unbound variable check for SDKMAN
+                source "$HOME/.sdkman/bin/sdkman-init.sh"
+                set -u  # Re-enable unbound variable check
+
+                sdk use java 21.0.8-librca
+
+                advisor build-config get
+
+                upgrade_output=$(advisor upgrade-plan get)
+                echo "$upgrade_output"
+
+                if [[ $upgrade_output == *"No upgrade plans available"* ]]; then
+                  apply_patch_upgrade || echo "No patch upgrades available"
+                else
+                  apply_advisor_upgrade || echo "Advisor upgrade completed with warnings"
+                fi

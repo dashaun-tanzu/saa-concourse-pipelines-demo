@@ -82,11 +82,21 @@ install_fly() {
     chmod +x ./fly
     ./fly -t advisor-demo login -c http://localhost:8080 -u test -p test -n main
 
+    # Create teams for GitHub orgs
     orgs=$(echo "$GITHUB_ORGS" | sed 's/\[//g' | sed 's/\]//g' | sed 's/"//g')
     IFS=',' read -ra ORG_ARRAY <<< "$orgs"
     for org in "${ORG_ARRAY[@]}"; do
         ./fly -t advisor-demo set-team --team-name "$org" --local-user test --non-interactive
     done
+
+    # Create teams for GitLab groups
+    if [[ -n "${GITLAB_GROUPS:-}" && "${GITLAB_GROUPS}" != "[]" ]]; then
+        groups=$(echo "$GITLAB_GROUPS" | sed 's/\[//g' | sed 's/\]//g' | sed 's/"//g')
+        IFS=',' read -ra GROUP_ARRAY <<< "$groups"
+        for group in "${GROUP_ARRAY[@]}"; do
+            ./fly -t advisor-demo set-team --team-name "$group" --local-user test --non-interactive
+        done
+    fi
 
     ./fly -t advisor-demo set-pipeline --non-interactive \
             -p rewrite-spawner \
@@ -94,6 +104,9 @@ install_fly() {
             -v advisor_version="$ADVISOR_VERSION" \
             -v github_token="$GIT_TOKEN_FOR_PRS" \
             -v github_orgs="$GITHUB_ORGS" \
+            -v gitlab_token="${GITLAB_TOKEN:-}" \
+            -v gitlab_groups="${GITLAB_GROUPS:-[]}" \
+            -v gitlab_host="${GITLAB_HOST:-https://gitlab.com}" \
             -v git_email="$GIT_EMAIL" \
             -v git_name="$GIT_NAME" \
             -v api_base='https://api.github.com' \
