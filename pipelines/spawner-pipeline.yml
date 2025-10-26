@@ -152,5 +152,7 @@ jobs:
               repo_full_name: ((.:repo.full_name))
               repo_clone_url: ((.:repo.clone_url))
               github_token: ((github_token))
+              git_email: ((git_email))
+              git_name: ((git_name))
               maven_password: ((maven_password))
               maven_username: ((maven_username))

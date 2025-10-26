@@ -93,6 +93,8 @@ install_fly() {
             -c ../pipelines/spawner-pipeline.yml \
             -v github_token="$GIT_TOKEN_FOR_PRS" \
             -v github_orgs="$GITHUB_ORGS" \
+            -v git_email="$GIT_EMAIL" \
+            -v git_name="$GIT_NAME" \
             -v api_base='https://api.github.com' \
             -v maven_password="$MAVEN_PASSWORD" \
             -v maven_username="$MAVEN_USERNAME" \

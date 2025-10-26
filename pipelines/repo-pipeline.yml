@@ -101,6 +101,7 @@ jobs:
           params:
             GIT_TOKEN_FOR_PRS: ((github_token))
             GIT_EMAIL: ((git_email))
+            GIT_NAME: ((git_name))
             REPO_FULL_NAME: ((repo_full_name))
             MAVEN_PASSWORD: ((maven_password))
             MAVEN_USERNAME: ((maven_username))
@@ -150,7 +151,7 @@ jobs:
                   cd repo
                   git checkout main
                   git config --global user.email "$GIT_EMAIL"
-                  git config --global user.name "DaShaun"
+                  git config --global user.name "$GIT_NAME"
                   echo "$GIT_TOKEN_FOR_PRS" | gh auth login --with-token
                   gh auth setup-git
                   gh repo set-default "$REPO_FULL_NAME"
