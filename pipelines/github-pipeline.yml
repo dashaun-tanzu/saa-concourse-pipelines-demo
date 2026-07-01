@@ -124,6 +124,7 @@ jobs:
             NEXUS_URL: ((nexus_url))
             SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_URI: https://github.com/dashaun-tanzu/advisor-mappings.git
             SPRING_ADVISOR_MAPPING_CUSTOM_0_GIT_PATH: mappings/
+            SPRING_ADVISOR_MAPPING_CUSTOM_0_MERGE_STRATEGY: override
           run:
             path: bash
             args:
